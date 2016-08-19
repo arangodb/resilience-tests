@@ -17,7 +17,6 @@ describe('ClusterResilience', function() {
       });
       return db.collection('testcollection').create({ shards: 4})
       .then(() => {
-        console.log("ANGELEGT");
         return Promise.all([
           db.collection('testcollection').save({'testung': Date.now()}),
           db.collection('testcollection').save({'testung': Date.now()}),
