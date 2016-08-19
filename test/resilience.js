@@ -26,7 +26,7 @@ describe('ClusterResilience', function() {
     return instanceManager.cleanup();
   })
 
-  it('should report the same number of documents after a server restart', function() {
+  it('should report the same number of documents after a db server restart', function() {
     let count = 7;
     return db.collection('testcollection').create({ shards: 4})
     .then(() => {
@@ -71,4 +71,86 @@ describe('ClusterResilience', function() {
       })
     })
   })
+  
+  it('should report the same number of documents after a coordinator restart', function() {
+    let count = 7;
+    return db.collection('testcollection').create({ shards: 4})
+    .then(() => {
+      return Promise.all([
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+      ])
+      .then(() => {
+        return db.collection('testcollection').count();
+      })
+      .then(realCount => {
+        expect(realCount.count).to.equal(count);
+      })
+      .then(() => {
+        let server = instanceManager.coordinators()[0];
+        return instanceManager.kill(server)
+        .then(() => {
+          return server;
+        });
+      })
+      .then(server => {
+        // mop: wait a bit to possibly make the cluster go wild!
+        return new Promise((resolve, reject) => {
+          setTimeout(() => {
+            resolve(server);
+          }, 1000);
+        });
+      })
+      .then(server => {
+        return instanceManager.restart(server);
+      })
+      .then(() => {
+        return db.collection('testcollection').count();
+      })
+      .then(realCount => {
+        expect(realCount.count).to.equal(count);
+      })
+    })
+  });
+  
+  it('should report 503 when a required backend is not available', function() {
+    return db.collection('testcollection').create({ shards: 4})
+    .then(() => {
+      return Promise.all([
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+        db.collection('testcollection').save({'testung': Date.now()}),
+      ])
+    })
+    .then(() => {
+      let dbServer = instanceManager.dbServers()[0];
+      return instanceManager.kill(dbServer)
+      .then(() => {
+        return dbServer;
+      });
+    })
+    .then(() => {
+      return db.collection('testcollection').count();
+    })
+    .then(() => {
+      // mop: error must be thrown!
+      return Promise.reject("ArangoDB reported success even though a backend was killed?!");
+    }, err => {
+      let dbServer = instanceManager.dbServers()[0];
+      return instanceManager.restart(dbServer)
+      .then(() => {
+        expect(err.code).to.equal(503);
+        return Promise.resolve();
+      })
+    })
+  });
 });
