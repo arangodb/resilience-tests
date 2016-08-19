@@ -101,18 +101,17 @@ class InstanceManager {
           let index = instances.length;
           let args = [
             '--server.endpoint=tcp://0.0.0.0:' + endpoint.match(/:(\d+)\/?/)[1],
-            '--agency.id=' + index,
+            '--agency.activate=true',
             '--agency.size=' + size,
+            '--agency.pool-size=' + size,
             '--agency.wait-for-sync=' + wfs,
             '--agency.supervision=true',
           ];
-          if (index == size - 1) {
-            args = args.concat(instances.map(instance => {
-              return '--agency.endpoint=' + instance.endpoint;
-            }));
+          if (index == 0) {
             args.push('--agency.endpoint=' + endpoint);
-            args.push('--agency.notify=true');
-          }
+          } else {
+            args.push('--agency.endpoint=' + instances[0].endpoint);
+          } 
           return this.startArango('agency-' + (index + 1), endpoint, 'agent', args)
         })
         .then(instance => {
