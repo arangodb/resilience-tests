@@ -1,6 +1,7 @@
 const _ = require('lodash');
 const rp = require('request-promise');
 const LocalRunner = require('./LocalRunner.js');
+const DockerRunner = require('./DockerRunner.js');
 
 const endpointToUrl = function(endpoint) {
   if (endpoint.substr(0, 6) === 'ssl://') {
@@ -21,17 +22,18 @@ class InstanceManager {
   constructor(name) {
     this.instances = [];
 
-    if (process.env.ARANGO_BASEPATH) {
-      this.runner = new LocalRunner(process.env.ARANGO_BASEPATH);
+    if (process.env.RESILIENCE_ARANGO_BASEPATH) {
+      this.runner = new LocalRunner(process.env.RESILIENCE_ARANGO_BASEPATH);
+    } else if (process.env.RESILIENCE_DOCKER_IMAGE) {
+      this.runner = new DockerRunner(process.env.RESILIENCE_DOCKER_IMAGE);
     }
 
     if (!this.runner) {
-      throw new Error('Must specify ARANGO_BASEPATH (source root dir including a "build" folder containing compiled binaries');
+      throw new Error('Must specify RESILIENCE_ARANGO_BASEPATH (source root dir including a "build" folder containing compiled binaries or RESILIENCE_DOCKER_IMAGE to test a docker container');
     }
   }
 
   startArango(name, endpoint, role, args) {
-    args.unshift('--configuration=none');
     args.push('--server.authentication=false');
     
     let instance = {
@@ -50,7 +52,6 @@ class InstanceManager {
     return this.runner.createEndpoint()
     .then(endpoint => {
       let args = [
-        '--server.endpoint=' + endpoint,
         '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
         '--cluster.my-role=PRIMARY',
         '--cluster.my-local-info=' + name,
@@ -70,7 +71,6 @@ class InstanceManager {
     return this.runner.createEndpoint()
     .then(endpoint => {
       let args = [
-        '--server.endpoint=' + endpoint,
         '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
         '--cluster.my-role=COORDINATOR',
         '--cluster.my-local-info=' + name,
@@ -100,12 +100,12 @@ class InstanceManager {
         .then(endpoint => {
           let index = instances.length;
           let args = [
-            '--server.endpoint=tcp://0.0.0.0:' + endpoint.match(/:(\d+)\/?/)[1],
             '--agency.activate=true',
             '--agency.size=' + size,
             '--agency.pool-size=' + size,
             '--agency.wait-for-sync=' + wfs,
             '--agency.supervision=true',
+            '--agency.my-address=' + endpoint,
           ];
           if (index == 0) {
             args.push('--agency.endpoint=' + endpoint);

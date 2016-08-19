@@ -18,6 +18,7 @@
     "request": "^2.74.0",
     "request-promise": "^4.1.1",
     "rimraf-promise": "^2.0.0",
-    "tmp": "0.0.28"
+    "tmp": "0.0.28",
+    "which": "^1.2.10"
   }
 }

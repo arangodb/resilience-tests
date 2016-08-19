@@ -1,5 +1,6 @@
 const spawn = require('child_process').spawn;
 const portastic = require('portastic');
+const ip = require('ip');
 
 function startInstance(instance) {
   instance.port = portFromEndpoint(instance.endpoint);
@@ -48,5 +49,16 @@ function portFromEndpoint(endpoint) {
   return endpoint.match(/:(\d+)\/?/)[1];
 }
 
+function createEndpoint() {
+  let myIp = ip.address();
+
+  return findFreePort(myIp)
+    .then(port => {
+      return 'tcp://' + myIp + ':' + port;
+    });
+}
+
+exports.portFromEndpoint = portFromEndpoint;
+exports.createEndpoint = createEndpoint;
 exports.startInstance = startInstance;
 exports.findFreePort = findFreePort;

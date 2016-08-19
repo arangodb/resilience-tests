@@ -26,9 +26,6 @@ describe('ClusterResilience', function() {
     return instanceManager.cleanup();
   })
 
-  it('should setup and teardown the cluster properly', function() {
-  })
-
   it('should report the same number of documents after a server restart', function() {
     let count = 7;
     return db.collection('testcollection').create({ shards: 4})
