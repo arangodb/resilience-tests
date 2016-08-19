@@ -52,8 +52,6 @@ class DockerRunner {
       ];
 
       instance.args = dockerArgs.concat(instance.args);
-
-      console.log(instance.args);
       return instance;
     })
     .then(instance => {
