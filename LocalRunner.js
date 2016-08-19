@@ -9,7 +9,7 @@ const rmRf = require('rimraf-promise');
 
 class LocalRunner {
   constructor(basePath) {
-    this.rootDir = tmp.dirSync().name;
+    this.rootDir = tmp.dirSync({'prefix': 'arango-resilience'}).name;
     this.basePath = basePath;
   }
 
@@ -40,7 +40,7 @@ class LocalRunner {
   }
 
   cleanup() {
-    return rmRf(this.rootDir);
+    return rmRf(this.rootDir)
   }
 }
 

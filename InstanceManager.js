@@ -244,8 +244,8 @@ class InstanceManager {
       return checkDown();
     })
     .then(() => {
-      this.runner.cleanup();
       this.instances = [];
+      return this.runner.cleanup();
     })
   }
 
