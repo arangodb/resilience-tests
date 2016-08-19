@@ -15,6 +15,19 @@ describe('ClusterResilience', function() {
         url: instanceManager.getEndpointUrl(),
         databaseName: '_system',
       });
+      return db.collection('testcollection').create({ shards: 4})
+      .then(() => {
+        console.log("ANGELEGT");
+        return Promise.all([
+          db.collection('testcollection').save({'testung': Date.now()}),
+          db.collection('testcollection').save({'testung': Date.now()}),
+          db.collection('testcollection').save({'testung': Date.now()}),
+          db.collection('testcollection').save({'testung': Date.now()}),
+          db.collection('testcollection').save({'testung': Date.now()}),
+          db.collection('testcollection').save({'testung': Date.now()}),
+          db.collection('testcollection').save({'testung': Date.now()}),
+        ])
+      })
     });
   })
 
@@ -28,114 +41,77 @@ describe('ClusterResilience', function() {
 
   it('should report the same number of documents after a db server restart', function() {
     let count = 7;
-    return db.collection('testcollection').create({ shards: 4})
+    return db.collection('testcollection').count()
+    .then(realCount => {
+      expect(realCount.count).to.equal(count);
+    })
     .then(() => {
-      return Promise.all([
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-      ])
-      .then(() => {
-        return db.collection('testcollection').count();
-      })
-      .then(realCount => {
-        expect(realCount.count).to.equal(count);
-      })
-      .then(() => {
-        let dbServer = instanceManager.dbServers()[0];
-        return instanceManager.kill(dbServer)
+      let dbServer = instanceManager.dbServers()[0];
+      return instanceManager.kill(dbServer)
         .then(() => {
           return dbServer;
         });
-      })
-      .then(dbServer => {
-        // mop: wait a bit to possibly make the cluster go wild!
-        return new Promise((resolve, reject) => {
-          setTimeout(() => {
-            resolve(dbServer);
-          }, 1000);
-        });
-      })
-      .then(dbServer => {
-        return instanceManager.restart(dbServer);
-      })
-      .then(() => {
-        return db.collection('testcollection').count();
-      })
-      .then(realCount => {
-        expect(realCount.count).to.equal(count);
-      })
+    })
+    .then(dbServer => {
+      // mop: wait a bit to possibly make the cluster go wild!
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          resolve(dbServer);
+        }, 1000);
+      });
+    })
+    .then(dbServer => {
+      return instanceManager.restart(dbServer);
+    })
+    .then(() => {
+      return db.collection('testcollection').count();
+    })
+    .then(realCount => {
+      expect(realCount.count).to.equal(count);
     })
   })
   
   it('should report the same number of documents after a coordinator restart', function() {
     let count = 7;
-    return db.collection('testcollection').create({ shards: 4})
+    return db.collection('testcollection').count()
+    .then(realCount => {
+      expect(realCount.count).to.equal(count);
+    })
     .then(() => {
-      return Promise.all([
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-      ])
-      .then(() => {
-        return db.collection('testcollection').count();
-      })
-      .then(realCount => {
-        expect(realCount.count).to.equal(count);
-      })
-      .then(() => {
-        let server = instanceManager.coordinators()[0];
-        return instanceManager.kill(server)
+      let server = instanceManager.coordinators()[0];
+      return instanceManager.kill(server)
         .then(() => {
           return server;
         });
-      })
-      .then(server => {
-        // mop: wait a bit to possibly make the cluster go wild!
-        return new Promise((resolve, reject) => {
-          setTimeout(() => {
-            resolve(server);
-          }, 1000);
-        });
-      })
-      .then(server => {
-        return instanceManager.restart(server);
-      })
-      .then(() => {
-        return db.collection('testcollection').count();
-      })
-      .then(realCount => {
-        expect(realCount.count).to.equal(count);
-      })
+    })
+    .then(server => {
+      // mop: wait a bit to possibly make the cluster go wild!
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          resolve(server);
+        }, 1000);
+      });
+    })
+    .then(server => {
+      return instanceManager.restart(server);
+    })
+    .then(() => {
+      return db.collection('testcollection').count();
+    })
+    .then(realCount => {
+      expect(realCount.count).to.equal(count);
     })
   });
   
   it('should report 503 when a required backend is not available', function() {
-    return db.collection('testcollection').create({ shards: 4})
-    .then(() => {
-      return Promise.all([
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-        db.collection('testcollection').save({'testung': Date.now()}),
-      ])
-    })
-    .then(() => {
-      let dbServer = instanceManager.dbServers()[0];
-      return instanceManager.kill(dbServer)
-      .then(() => {
-        return dbServer;
+    let dbServer = instanceManager.dbServers()[0];
+    return instanceManager.kill(dbServer)
+    .then(server => {
+      // mop: wait a bit to possibly make the cluster go wild!
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          resolve(server);
+        }, 1000);
       });
     })
     .then(() => {
