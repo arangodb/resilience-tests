@@ -3,7 +3,7 @@ node_js:
   - "6.1"
 
 env:
-  - RESILIENCE_DOCKER_IMAGE=m0ppers/arangodb:3.1
+  - RESILIENCE_DOCKER_IMAGE=arangodb/arangodb-devel
 
 services:
   - docker
