@@ -160,6 +160,9 @@ class InstanceManager {
   waitForAllInstances() {
     let waitForInstances = function(instances) {
       return Promise.all(instances.map(instance => {
+        if (instance.status != 'RUNNING') {
+          return Promise.reject('Instance ' + instance.name + ' is down!');
+        }
         return rp(endpointToUrl(instance.endpoint) + '/_api/version')
         .then(() => {
           return undefined;
