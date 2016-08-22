@@ -26,8 +26,15 @@ class LocalRunner {
     instance.args.push('--javascript.app-path=' + appsDir);
     instance.args.push('--server.endpoint=' + instance.endpoint);
     instance.args.push(dataDir);
-
-    instance.binary = path.join(this.basePath, 'build', 'bin', 'arangod');
+    
+    let arangod = path.join(this.basePath, 'build', 'bin', 'arangod');
+    if (process.env.RESILIENCE_ARANGO_WRAPPER) {
+      let wrapper = process.env.RESILIENCE_ARANGO_WRAPPER.split(' ');
+      instance.binary = wrapper.shift();
+      instance.args = wrapper.concat(arangod, instance.args);
+    } else {
+      instance.binary = arangod;
+    }
     return startInstance(instance);
   }
 

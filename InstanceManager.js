@@ -2,21 +2,7 @@ const _ = require('lodash');
 const rp = require('request-promise');
 const LocalRunner = require('./LocalRunner.js');
 const DockerRunner = require('./DockerRunner.js');
-
-const endpointToUrl = function(endpoint) {
-  if (endpoint.substr(0, 6) === 'ssl://') {
-    return 'https://' + endpoint.substr(6);
-  }
-
-  const pos = endpoint.indexOf('://');
-
-  if (pos === -1) {
-    return 'http://' + endpoint;
-  }
-
-  return 'http' + endpoint.substr(pos);
-}
-
+const endpointToUrl = require('./common.js').endpointToUrl;
 
 class InstanceManager {
   constructor(name) {
@@ -91,13 +77,6 @@ class InstanceManager {
       promise = promise.then(instances => {
         return this.runner.createEndpoint()
         .then(endpoint => {
-          return new Promise((resolve, reject) => {
-            setTimeout(() => {
-              resolve(endpoint);
-            }, 100);
-          });
-        })
-        .then(endpoint => {
           let index = instances.length;
           let args = [
             '--agency.activate=true',
@@ -119,7 +98,11 @@ class InstanceManager {
         });
       })
     }
-    return promise;
+    return promise
+    .then(agents => {
+      this.instances = agents;
+      return agents;
+    })
   }
 
   startCluster(numAgents, numCoordinators, numDbServers, options = {}) {
@@ -130,7 +113,6 @@ class InstanceManager {
     
     return this.startAgency(agencyOptions)
     .then(agents => {
-      this.instances = agents;
       let agencyEndpoint = agents[0].endpoint;
     
       let promises = [Promise.resolve(agents)];
@@ -171,7 +153,7 @@ class InstanceManager {
       return this.waitForAllInstances();
     })
     .then(() => {
-      return this.coordinators()[0].endpoint;
+      return this.getEndpoint();
     })
   }
 
@@ -201,9 +183,6 @@ class InstanceManager {
       })
     }
     return waitForInstances(this.instances.slice())
-    .then(() => {
-      return this.getEndpoint();
-    });
   }
 
   getEndpoint() {
@@ -221,10 +200,19 @@ class InstanceManager {
   }
 
   cleanup() {
-    return rp({
-      method: 'DELETE',
-      uri: endpointToUrl(this.getEndpoint()) + '/_admin/shutdown?shutdown_cluster=1',
-    })
+    let shutdownPromise;
+    if (this.coordinators().length == 0) {
+      shutdownPromise = Promise.all(this.agents().map(agent => {
+        return agent.process.kill();
+      }));
+    } else {
+      shutdownPromise = rp({
+        method: 'DELETE',
+        uri: endpointToUrl(this.getEndpoint()) + '/_admin/shutdown?shutdown_cluster=1',
+      })
+    }
+    
+    return shutdownPromise
     .then(() => {
       let checkDown = () => {
         let allDown = this.instances.every(instance => {
@@ -267,13 +255,16 @@ class InstanceManager {
     });
   }
 
-  kill(instance) {
+  kill(instance, signal = 'SIGTERM') {
     let index = this.instances.indexOf(instance);
     if (index === -1) {
-      throw new Error('Couldn\'t find instance', instance);
+      this.instances.forEach(ainstance => {
+        console.log("HAB " + ainstance.name);
+      });
+      throw new Error('Couldn\'t find instance ' + instance.name);
     }
     
-    instance.process.kill();
+    instance.process.kill(signal);
     instance.status = 'KILLED';
     return new Promise((resolve, reject) => {
       let check = function() {

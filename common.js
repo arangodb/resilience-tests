@@ -58,6 +58,21 @@ function createEndpoint() {
     });
 }
 
+const endpointToUrl = function(endpoint) {
+  if (endpoint.substr(0, 6) === 'ssl://') {
+    return 'https://' + endpoint.substr(6);
+  }
+
+  const pos = endpoint.indexOf('://');
+
+  if (pos === -1) {
+    return 'http://' + endpoint;
+  }
+
+  return 'http' + endpoint.substr(pos);
+}
+
+exports.endpointToUrl = endpointToUrl;
 exports.portFromEndpoint = portFromEndpoint;
 exports.createEndpoint = createEndpoint;
 exports.startInstance = startInstance;
