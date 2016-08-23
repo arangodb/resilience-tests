@@ -15,7 +15,7 @@ describe('ClusterResilience', function() {
         url: instanceManager.getEndpointUrl(),
         databaseName: '_system',
       });
-      return db.collection('testcollection').create({ shards: 4})
+      return db.collection('testcollection').create({ numberOfShards: 4})
       .then(() => {
         return Promise.all([
           db.collection('testcollection').save({'testung': Date.now()}),
@@ -116,16 +116,18 @@ describe('ClusterResilience', function() {
     .then(() => {
       return db.collection('testcollection').count();
     })
-    .then(() => {
+    .then(result => {
       // mop: error must be thrown!
-      return Promise.reject("ArangoDB reported success even though a backend was killed?!");
+      return Promise.reject("ArangoDB reported success even though a backend was killed?!" + JSON.stringify(result));
     }, err => {
-      let dbServer = instanceManager.dbServers()[0];
-      return instanceManager.restart(dbServer)
-      .then(() => {
-        expect(err.code).to.equal(503);
-        return Promise.resolve();
-      })
+      expect(err.code).to.equal(503);
+      return instanceManager.restart(dbServer);
     })
+  });
+
+  it('should properly shutdown when a backend has failed', function() {
+    let dbServer = instanceManager.dbServers()[0];
+    return instanceManager.kill(dbServer, 'SIGKILL');
+    // mop: afterEach should work
   });
 });
