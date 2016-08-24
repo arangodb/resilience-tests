@@ -156,36 +156,28 @@ class InstanceManager {
       return this.getEndpoint();
     })
   }
+  
+  waitForInstance(instance) {
+    if (instance.status != 'RUNNING') {
+      return Promise.reject('Instance ' + instance.name + ' is down!');
+    }
+    return rp(endpointToUrl(instance.endpoint) + '/_api/version')
+    .then(() => {
+      return instance;
+    },err => {
+      return new Promise((resolve, reject) => {
+        setTimeout(resolve, 100);
+      })
+      .then(() => {
+        return this.waitForInstance(instance);
+      })
+    });
+  }
 
   waitForAllInstances() {
-    let waitForInstances = function(instances) {
-      return Promise.all(instances.map(instance => {
-        if (instance.status != 'RUNNING') {
-          return Promise.reject('Instance ' + instance.name + ' is down!');
-        }
-        return rp(endpointToUrl(instance.endpoint) + '/_api/version')
-        .then(() => {
-          return undefined;
-        },err => {
-          return instance;
-        });
-      }))
-      .then(results => {
-        let failed = results.filter(result => {
-          return result !== undefined;
-        });
-        if (failed.length == 0) {
-          return;
-        } else {
-          return new Promise((resolve, reject) => {
-            setTimeout(() => {
-              resolve(waitForInstances(failed));
-            }, 100);
-          });
-        }
-      })
-    }
-    return waitForInstances(this.instances.slice())
+    return Promise.all(this.instances.map(instance => {
+      return this.waitForInstance(instance);
+    }));
   }
 
   getEndpoint() {
@@ -202,7 +194,7 @@ class InstanceManager {
     });
   }
 
-  cleanup() {
+  shutdownCluster() {
     let shutdownPromise;
     if (this.coordinators().length == 0) {
       shutdownPromise = Promise.all(this.agents().map(agent => {
@@ -214,7 +206,6 @@ class InstanceManager {
         uri: endpointToUrl(this.getEndpoint()) + '/_admin/shutdown?shutdown_cluster=1',
       })
     }
-    
     return shutdownPromise
     .then(() => {
       let checkDown = () => {
@@ -234,6 +225,10 @@ class InstanceManager {
       }
       return checkDown();
     })
+  }
+
+  cleanup() {
+    return this.shutdownCluster()
     .then(() => {
       this.instances = [];
       return this.runner.cleanup();
@@ -261,9 +256,6 @@ class InstanceManager {
   kill(instance, signal = 'SIGTERM') {
     let index = this.instances.indexOf(instance);
     if (index === -1) {
-      this.instances.forEach(ainstance => {
-        console.log("HAB " + ainstance.name);
-      });
       throw new Error('Couldn\'t find instance ' + instance.name);
     }
     
@@ -289,7 +281,7 @@ class InstanceManager {
 
     return this.runner.restart(instance)
     .then(() => {
-      return this.waitForAllInstances();
+      return this.waitForInstance(instance);
     })
   }
 }

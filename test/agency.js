@@ -124,7 +124,7 @@ describe('Agency', function() {
     .then(() => {
       return rp({
         method: 'POST',
-        url: endpointToUrl(followers[0].endpoint) + '/_api/agency/read',
+        url: endpointToUrl(leader.endpoint) + '/_api/agency/read',
         json: true,
         body: [['/']],
         followRedirects: false,
