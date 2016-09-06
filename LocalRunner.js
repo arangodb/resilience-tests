@@ -5,6 +5,7 @@ const portFromEndpoint = require('./common.js').portFromEndpoint;
 const createEndpoint = require('./common.js').createEndpoint;
 const tmp = require('tmp');
 const rmRf = require('rimraf-promise');
+const mkdirp = require('mkdirp-promise/lib/node5');
 
 class LocalRunner {
   constructor(basePath) {
@@ -35,7 +36,14 @@ class LocalRunner {
     } else {
       instance.binary = arangod;
     }
-    return startInstance(instance);
+
+    return Promise.all([
+      mkdirp(dataDir),
+      mkdirp(appsDir),
+    ])
+    .then(() => {
+      return startInstance(instance);
+    });
   }
 
   restart(instance) {
