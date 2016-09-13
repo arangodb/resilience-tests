@@ -189,11 +189,6 @@ describe('Agency', function() {
 
     return promise
     .then(() => {
-      return new Promise((resolve, reject) => {
-        setTimeout(resolve, 100);
-      });
-    })
-    .then(() => {
       return agencyRequest({
         method: 'POST',
         url: endpointToUrl(leader.endpoint) + '/_api/agency/read',
