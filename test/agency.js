@@ -189,16 +189,22 @@ describe('Agency', function() {
 
     return promise
     .then(() => {
+      return new Promise((resolve, reject) => {
+        setTimeout(resolve, 100);
+      });
+    })
+    .then(() => {
       return agencyRequest({
         method: 'POST',
         url: endpointToUrl(leader.endpoint) + '/_api/agency/read',
         json: true,
         body: [['/']],
-      })
+      }) 
     })
     .then(result => {
       expect(result).to.be.instanceof(Array);
       expect(result[0]).to.eql({'subba': instanceManager.instances.length * 2 - 1});
     })
   });
+  
 });

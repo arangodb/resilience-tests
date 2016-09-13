@@ -85,6 +85,8 @@ class InstanceManager {
             '--agency.wait-for-sync=' + wfs,
             '--agency.supervision=true',
             '--agency.my-address=' + endpoint,
+            '--agency.election-timeout-min=' + 0.25,
+            '--agency.election-timeout-max=' + 1.25,
           ];
           if (index == 0) {
             args.push('--agency.endpoint=' + endpoint);
