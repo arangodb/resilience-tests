@@ -86,7 +86,7 @@ describe('Agency', function() {
     return instanceManager.cleanup();
   });
 
-/*  it('should failover when stopping the leader', function() {
+  it('should failover when stopping the leader', function() {
     let data = {'hans': 'wurst'};
     return writeData(leader, data)
     .then(() => {
@@ -168,7 +168,6 @@ describe('Agency', function() {
       expect(result[0]).to.eql(data);
     })
   });
-*/  
   it('should have the correct results after a funny fail rotation', function() {
     let promise = Promise.resolve();
     for (let i=0;i<instanceManager.instances.length * 2;i++) {
@@ -194,7 +193,7 @@ describe('Agency', function() {
         url: endpointToUrl(leader.endpoint) + '/_api/agency/read',
         json: true,
         body: [['/']],
-      }); 
+      })
     })
     .then(result => {
       expect(result).to.be.instanceof(Array);
