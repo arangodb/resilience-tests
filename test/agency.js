@@ -1,62 +1,64 @@
+/* global describe, it, beforeEach, afterEach */
+'use strict';
 const InstanceManager = require('../InstanceManager.js');
 const endpointToUrl = require('../common.js').endpointToUrl;
 
 const expect = require('chai').expect;
 const rp = require('request-promise');
 
-let agencyRequest = function(options) {
+let agencyRequest = function (options) {
   options.followRedirects = options.followRedirects || false;
   return rp(options)
   .then(response => {
     return response;
   })
   .catch(err => {
-    if (err.statusCode == 307) {
+    if (err.statusCode === 307) {
       options.url = err.response.headers['location'];
       return agencyRequest(options);
     }
     return Promise.reject(err);
-  })
-}
+  });
+};
 
-let writeData = function(leader, data) {
+let writeData = function (leader, data) {
   return agencyRequest({
     method: 'POST',
     url: endpointToUrl(leader.endpoint) + '/_api/agency/write',
     json: true,
     body: [[data]],
-    followRedirects: false,
-  })
-}
+    followRedirects: false
+  });
+};
 
-describe('Agency', function() {
+describe('Agency', function () {
   let instanceManager = new InstanceManager('agency');
   let leader;
   let followers;
 
-  beforeEach(function() {
+  beforeEach(function () {
     return instanceManager.startAgency({agencySize: 3})
     .then(agents => {
-      let checkForLeader = function() {
+      let checkForLeader = function () {
         return rp({
           url: endpointToUrl(agents[0].endpoint) + '/_api/agency/config',
-          json: true,
+          json: true
         })
         .then(result => {
-          if (result.leaderId == '') {
+          if (result.leaderId === '') {
             return Promise.reject();
           }
           return result.leaderId;
         })
-        .catch(err => {
+        .catch(() => {
           return new Promise((resolve, reject) => {
             setTimeout(resolve, 100);
           })
           .then(() => {
             return checkForLeader();
-          })
-        })
-      }
+          });
+        });
+      };
       return checkForLeader()
       .then(leaderId => {
         return agents.reduce((leaderInstance, agent) => {
@@ -66,10 +68,10 @@ describe('Agency', function() {
 
           return agencyRequest({
             url: agent.endpoint + '/_api/agency/config',
-            json: true,
+            json: true
           })
           .then(result => {
-            if (result.configuration.id == leaderId) {
+            if (result.configuration.id === leaderId) {
               return agent;
             }
           });
@@ -78,20 +80,20 @@ describe('Agency', function() {
       .then(leaderInstance => {
         leader = leaderInstance;
         followers = instanceManager.agents().filter(agent => agent !== leader);
-      })
-    })
+      });
+    });
   });
 
-  afterEach(function() {
+  afterEach(function () {
     return instanceManager.cleanup()
     .then(log => {
-      if (this.currentTest.state == 'failed') {
+      if (this.currentTest.state === 'failed') {
         this.currentTest.err.message = log + '\n\n' + this.currentTest.err.message;
       }
     });
   });
 
-  it('should failover when stopping the leader', function() {
+  it('should failover when stopping the leader', function () {
     let data = {'hans': 'wurst'};
     return writeData(leader, data)
     .then(() => {
@@ -108,16 +110,16 @@ describe('Agency', function() {
         method: 'POST',
         url: endpointToUrl(followers[0].endpoint) + '/_api/agency/read',
         json: true,
-        body: [['/']],
+        body: [['/']]
       });
     })
     .then(result => {
       expect(result).to.be.instanceof(Array);
       expect(result[0]).to.eql(data);
-    })
+    });
   });
 
-  it('should not think it is the leader after a restart', function() {
+  it('should not think it is the leader after a restart', function () {
     let data = {'hans': 'wurst'};
     return writeData(leader, data)
     .then(() => {
@@ -132,62 +134,62 @@ describe('Agency', function() {
         url: endpointToUrl(leader.endpoint) + '/_api/agency/read',
         json: true,
         body: [['/']],
-        followRedirects: false,
+        followRedirects: false
       })
       .then(() => {
         return Promise.all([
           rp({
-            url: endpointToUrl(leader.endpoint) + '/_api/agency/config',
+            url: endpointToUrl(leader.endpoint) + '/_api/agency/config'
           }),
           rp({
-            url: endpointToUrl(followers[0].endpoint) + '/_api/agency/config',
-          }),
+            url: endpointToUrl(followers[0].endpoint) + '/_api/agency/config'
+          })
         ])
         .then(results => {
           throw new Error('It should not report success! It should block all incoming rest requests until it redetermined who the leader is. Configresults: ' + JSON.stringify({leader: results[0], follower: results[1]}));
-        })
+        });
       }, err => {
         expect(err.statusCode).to.equal(307);
       });
-    })
+    });
   });
-  it('should reintegrate a crashed follower', function() {
+  it('should reintegrate a crashed follower', function () {
     throw new Error('hasi');
-    let data = {'koeln': 'sued'};
-    return writeData(leader, data)
-    .then(() => {
-      return instanceManager.kill(followers[0], 'SIGKILL');
-    })
-    .then(() => {
-      return instanceManager.restart(followers[0]);
-    })
-    .then(() => {
-      return agencyRequest({
-        method: 'POST',
-        url: endpointToUrl(followers[0].endpoint) + '/_api/agency/read',
-        json: true,
-        body: [['/']],
-      });
-    })
-    .then(result => {
-      expect(result).to.be.instanceof(Array);
-      expect(result[0]).to.eql(data);
-    })
+    // let data = {'koeln': 'sued'};
+    // return writeData(leader, data)
+    // .then(() => {
+    //   return instanceManager.kill(followers[0], 'SIGKILL');
+    // })
+    // .then(() => {
+    //   return instanceManager.restart(followers[0]);
+    // })
+    // .then(() => {
+    //   return agencyRequest({
+    //     method: 'POST',
+    //     url: endpointToUrl(followers[0].endpoint) + '/_api/agency/read',
+    //     json: true,
+    //     body: [['/']]
+    //   });
+    // })
+    // .then(result => {
+    //   expect(result).to.be.instanceof(Array);
+    //   expect(result[0]).to.eql(data);
+    // });
   });
-  it('should have the correct results after a funny fail rotation', function() {
+  it('should have the correct results after a funny fail rotation', function () {
     let promise = Promise.resolve();
-    for (let i=0;i<instanceManager.instances.length * 2;i++) {
-      promise = (function(promise, i) {
+    for (let i = 0; i < instanceManager.instances.length * 2; i++) {
+      promise = (function (promise, i) {
         return promise.then(() => {
           let data = {'subba': i};
           let instance = instanceManager.instances[i % instanceManager.instances.length];
           return writeData(instance, data)
           .then(() => {
-            return instanceManager.kill(instance)
+            return instanceManager.kill(instance);
           })
           .then(() => {
             return instanceManager.restart(instance);
-          })
+          });
         });
       })(promise, i);
     }
@@ -198,13 +200,12 @@ describe('Agency', function() {
         method: 'POST',
         url: endpointToUrl(leader.endpoint) + '/_api/agency/read',
         json: true,
-        body: [['/']],
-      })
+        body: [['/']]
+      });
     })
     .then(result => {
       expect(result).to.be.instanceof(Array);
       expect(result[0]).to.eql({'subba': instanceManager.instances.length * 2 - 1});
-    })
+    });
   });
-  
 });

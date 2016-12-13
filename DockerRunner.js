@@ -1,3 +1,4 @@
+'use strict';
 const createEndpoint = require('./common.js').createEndpoint;
 const which = require('which');
 const crypto = require('crypto');
@@ -6,19 +7,19 @@ const startInstance = require('./common.js').startInstance;
 const exec = require('child_process').exec;
 
 class DockerRunner {
-  constructor(image) {
-    var current_date = (new Date()).valueOf().toString();
+  constructor (image) {
+    var currentDate = (new Date()).valueOf().toString();
     var random = Math.random().toString();
-    this.prefix = 'arango-' + crypto.createHash('md5').update(current_date + random).digest('hex');
+    this.prefix = 'arango-' + crypto.createHash('md5').update(currentDate + random).digest('hex');
     this.image = image;
     this.containerNames = [];
   }
 
-  createEndpoint() {
+  createEndpoint () {
     return createEndpoint();
   }
 
-  locateDocker() {
+  locateDocker () {
     if (!this.docker) {
       this.docker = new Promise((resolve, reject) => {
         which('docker', (err, path) => {
@@ -28,16 +29,16 @@ class DockerRunner {
             resolve(path);
           }
         });
-      })
+      });
     }
     return this.docker;
   }
 
-  containerName(instance) {
+  containerName (instance) {
     return this.prefix + '-' + instance.name;
   }
 
-  firstStart(instance) {
+  firstStart (instance) {
     return this.locateDocker()
     .then(dockerBin => {
       instance.binary = dockerBin;
@@ -48,7 +49,7 @@ class DockerRunner {
         '-p', portFromEndpoint(instance.endpoint) + ':8529',
         '--name=' + this.containerName(instance),
         this.image,
-        'arangod',
+        'arangod'
       ];
 
       instance.args = dockerArgs.concat(instance.args);
@@ -57,22 +58,22 @@ class DockerRunner {
     .then(instance => {
       this.containerNames.push(this.containerName(instance));
       return startInstance(instance);
-    })
+    });
   }
 
-  restart(instance) {
+  restart (instance) {
     if (!instance.realArgs) {
       instance.realArgs = instance.args;
     }
     instance.args = [
       'start',
       '-a',
-      this.containerName(instance),
+      this.containerName(instance)
     ];
     return startInstance(instance);
   }
 
-  cleanup() {
+  cleanup () {
     return Promise.all(this.containerNames.map(containerName => {
       return this.locateDocker()
       .then(dockerBin => {

@@ -1,20 +1,20 @@
+/* global describe, it, before, after */
 'use strict';
-
 const InstanceManager = require('../InstanceManager.js');
 const expect = require('chai').expect;
 const arangojs = require('arangojs');
 
-describe('Failover', function() {
-  let instanceManager = new InstanceManager('failover');;
+describe('Failover', function () {
+  let instanceManager = new InstanceManager('failover');
   let db;
-  before(function() {
+  before(function () {
     return instanceManager.startCluster(1, 2, 3)
     .then(() => {
       db = arangojs({
         url: instanceManager.getEndpointUrl(),
-        databaseName: '_system',
+        databaseName: '_system'
       });
-      return db.collection('testcollection').create({ shards: 4, replicationFactor: 2})
+      return db.collection('testcollection').create({shards: 4, replicationFactor: 2})
       .then(() => {
         return Promise.all([
           db.collection('testcollection').save({'testung': Date.now()}),
@@ -23,21 +23,21 @@ describe('Failover', function() {
           db.collection('testcollection').save({'testung': Date.now()}),
           db.collection('testcollection').save({'testung': Date.now()}),
           db.collection('testcollection').save({'testung': Date.now()}),
-          db.collection('testcollection').save({'testung': Date.now()}),
-        ])
-      })
+          db.collection('testcollection').save({'testung': Date.now()})
+        ]);
+      });
     });
-  })
-  
-  after(function() {
+  });
+
+  after(function () {
     return instanceManager.cleanup()
     .then(log => {
-      if (this.currentTest.state == 'failed') {
+      if (this.currentTest.state === 'failed') {
         this.currentTest.err.message = log + '\n\n' + this.currentTest.err.message;
       }
     });
-  })
-  it('should fail over to another replica when a server goes down', function() {
+  });
+  it('should fail over to another replica when a server goes down', function () {
     let dbServer = instanceManager.dbServers()[0];
     return instanceManager.kill(dbServer)
     .then(server => {
@@ -53,6 +53,6 @@ describe('Failover', function() {
     })
     .then(count => {
       expect(count.count).to.equal(7);
-    })
+    });
   });
 });

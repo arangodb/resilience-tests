@@ -1,3 +1,4 @@
+'use strict';
 const _ = require('lodash');
 const rp = require('request-promise');
 const LocalRunner = require('./LocalRunner.js');
@@ -5,7 +6,7 @@ const DockerRunner = require('./DockerRunner.js');
 const endpointToUrl = require('./common.js').endpointToUrl;
 
 class InstanceManager {
-  constructor(name) {
+  constructor (name) {
     this.instances = [];
 
     if (process.env.RESILIENCE_ARANGO_BASEPATH) {
@@ -20,7 +21,7 @@ class InstanceManager {
     this.currentLog = '';
   }
 
-  startArango(name, endpoint, role, args) {
+  startArango (name, endpoint, role, args) {
     args.push('--server.authentication=false');
 
     let instance = {
@@ -37,54 +38,54 @@ class InstanceManager {
           if (process.env.LOG_IMMEDIATE) {
             console.log(line);
           } else {
-            this.currentLog += instance.name + '(' + process.pid + '): \t' + line + '\n';
+            this.currentLog += logLine + '\n';
           }
         }
-      },
-    }
+      }
+    };
     return this.runner.firstStart(instance);
   }
 
-  startDbServer(name, options = {}) {
+  startDbServer (name, options = {}) {
     return this.runner.createEndpoint()
     .then(endpoint => {
       let args = [
         '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
         '--cluster.my-role=PRIMARY',
         '--cluster.my-local-info=' + name,
-        '--cluster.my-address=' + endpoint,
+        '--cluster.my-address=' + endpoint
       ];
       return this.startArango(name, endpoint, 'primary', args);
     });
   }
 
-  getAgencyEndpoint() {
+  getAgencyEndpoint () {
     return this.instances.filter(instance => {
-      return instance.role == 'agent';
+      return instance.role === 'agent';
     })[0].endpoint;
   }
 
-  startCoordinator(name, options = {}) {
+  startCoordinator (name, options = {}) {
     return this.runner.createEndpoint()
     .then(endpoint => {
       let args = [
         '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
         '--cluster.my-role=COORDINATOR',
         '--cluster.my-local-info=' + name,
-        '--cluster.my-address=' + endpoint,
+        '--cluster.my-address=' + endpoint
       ];
       return this.startArango(name, endpoint, 'coordinator', args);
     });
   }
 
-  startAgency(options = {}) {
+  startAgency (options = {}) {
     let size = options.agencySize || 1;
     if (options.agencyWaitForSync === undefined) {
       options.agencyWaitForSync = false;
     }
     const wfs = options.agencyWaitForSync;
     let promise = Promise.resolve([]);
-    for (var i=0;i<size;i++) {
+    for (var i = 0; i < size; i++) {
       promise = promise.then(instances => {
         return this.runner.createEndpoint()
         .then(endpoint => {
@@ -95,39 +96,36 @@ class InstanceManager {
             '--agency.pool-size=' + size,
             '--agency.wait-for-sync=' + wfs,
             '--agency.supervision=true',
-            '--agency.my-address=' + endpoint,
+            '--agency.my-address=' + endpoint
           ];
-          if (index == 0) {
+          if (index === 0) {
             args.push('--agency.endpoint=' + endpoint);
           } else {
             args.push('--agency.endpoint=' + instances[0].endpoint);
-          } 
-          return this.startArango('agency-' + (index + 1), endpoint, 'agent', args)
+          }
+          return this.startArango('agency-' + (index + 1), endpoint, 'agent', args);
         })
         .then(instance => {
           return instances.concat([instance]);
         });
-      })
+      });
     }
     return promise
     .then(agents => {
       this.instances = agents;
       return agents;
-    })
+    });
   }
 
-  startCluster(numAgents, numCoordinators, numDbServers, options = {}) {
-    console.log("Starting Cluster with A: " + numAgents + " C: " + numCoordinators + " D: " + numDbServers);
-    
+  startCluster (numAgents, numCoordinators, numDbServers, options = {}) {
+    console.log('Starting Cluster with A: ' + numAgents + ' C: ' + numCoordinators + ' D: ' + numDbServers);
+
     let agencyOptions = options.agents || {};
     _.extend(agencyOptions, {agencySize: numAgents});
 
     return this.startAgency(agencyOptions)
     .then(agents => {
-      let agencyEndpoint = agents[0].endpoint;
-
       let promises = [Promise.resolve(agents)];
-      let i;
 
       let coordinatorOptions = options.coordinators || {};
       let coordinators = Array.from(Array(numDbServers).keys()).reduce((servers, index) => {
@@ -139,7 +137,7 @@ class InstanceManager {
         });
       }, Promise.resolve([]));
       promises.push(coordinators);
-      
+
       let dbServerOptions = options.dbservers || {};
       let dbServers = Array.from(Array(numDbServers).keys()).reduce((dbServers, index) => {
         return dbServers.then(instances => {
@@ -165,65 +163,65 @@ class InstanceManager {
     })
     .then(() => {
       return this.getEndpoint();
-    })
+    });
   }
-  
-  waitForInstance(instance) {
-    if (instance.status != 'RUNNING') {
+
+  waitForInstance (instance) {
+    if (instance.status !== 'RUNNING') {
       return Promise.reject('Instance ' + instance.name + ' is down!');
     }
     return rp(endpointToUrl(instance.endpoint) + '/_api/version')
     .then(() => {
       return instance;
-    },err => {
+    }, () => {
       return new Promise((resolve, reject) => {
         setTimeout(resolve, 100);
       })
       .then(() => {
         return this.waitForInstance(instance);
-      })
+      });
     });
   }
 
-  waitForAllInstances() {
+  waitForAllInstances () {
     return Promise.all(this.instances.map(instance => {
       return this.waitForInstance(instance);
     }));
   }
 
-  getEndpoint() {
+  getEndpoint () {
     return this.coordinators()[0].endpoint;
   }
-  
-  getEndpointUrl() {
+
+  getEndpointUrl () {
     return endpointToUrl(this.coordinators()[0].endpoint);
   }
 
-  check() {
+  check () {
     return this.instances.every(instance => {
-      return instance.status == 'RUNNING';
+      return instance.status === 'RUNNING';
     });
   }
 
-  shutdownCluster() {
+  shutdownCluster () {
     let shutdownPromise;
-    if (this.coordinators().length == 0) {
+    if (this.coordinators().length === 0) {
       shutdownPromise = Promise.all(this.agents().map(agent => {
         return agent.process.kill();
       }));
     } else {
       shutdownPromise = rp({
         method: 'DELETE',
-        uri: endpointToUrl(this.getEndpoint()) + '/_admin/shutdown?shutdown_cluster=1',
-      })
+        uri: endpointToUrl(this.getEndpoint()) + '/_admin/shutdown?shutdown_cluster=1'
+      });
     }
     return shutdownPromise
     .then(() => {
       let checkDown = () => {
         let allDown = this.instances.every(instance => {
-          return instance.status == 'EXITED';
+          return instance.status === 'EXITED';
         });
-        
+
         if (allDown) {
           return Promise.resolve(true);
         } else {
@@ -233,12 +231,12 @@ class InstanceManager {
             }, 100);
           });
         }
-      }
+      };
       return checkDown();
-    })
+    });
   }
 
-  cleanup() {
+  cleanup () {
     return this.shutdownCluster()
     .then(() => {
       this.instances = [];
@@ -251,45 +249,45 @@ class InstanceManager {
     });
   }
 
-  dbServers() {
+  dbServers () {
     return this.instances.filter(instance => {
-      return instance.role == 'primary';
+      return instance.role === 'primary';
     });
   }
 
-  coordinators() {
+  coordinators () {
     return this.instances.filter(instance => {
-      return instance.role == 'coordinator';
-    });
-  }
-  
-  agents() {
-    return this.instances.filter(instance => {
-      return instance.role == 'agent';
+      return instance.role === 'coordinator';
     });
   }
 
-  kill(instance, signal = 'SIGTERM') {
+  agents () {
+    return this.instances.filter(instance => {
+      return instance.role === 'agent';
+    });
+  }
+
+  kill (instance, signal = 'SIGTERM') {
     let index = this.instances.indexOf(instance);
     if (index === -1) {
       throw new Error('Couldn\'t find instance ' + instance.name);
     }
-    
+
     instance.process.kill(signal);
     instance.status = 'KILLED';
     return new Promise((resolve, reject) => {
-      let check = function() {
+      let check = function () {
         if (instance.status !== 'EXITED') {
           setTimeout(check, 50);
         } else {
           resolve();
         }
-      }
+      };
       check();
     });
   }
 
-  restart(instance) {
+  restart (instance) {
     let index = this.instances.indexOf(instance);
     if (index === -1) {
       throw new Error('Couldn\'t find instance', instance);
@@ -298,7 +296,7 @@ class InstanceManager {
     return this.runner.restart(instance)
     .then(() => {
       return this.waitForInstance(instance);
-    })
+    });
   }
 }
 

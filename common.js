@@ -1,8 +1,9 @@
+'use strict';
 const spawn = require('child_process').spawn;
 const portastic = require('portastic');
 const ip = require('ip');
 
-function startInstance(instance) {
+function startInstance (instance) {
   instance.port = portFromEndpoint(instance.endpoint);
   return new Promise((resolve, reject) => {
     let process = spawn(instance.binary, instance.args);
@@ -18,7 +19,7 @@ function startInstance(instance) {
       instance.status = 'EXITED';
       instance.exitcode = code;
 
-      //instance.logFn(`exited with code ${code}`);
+      // instance.logFn(`exited with code ${code}`);
     });
     instance.exitcode = null;
     instance.status = 'RUNNING';
@@ -27,8 +28,9 @@ function startInstance(instance) {
   });
 }
 
-let minPort = startMinPort = 3000;
-let findFreePort = function(ip) {
+let startMinPort = 3000;
+let minPort = startMinPort;
+let findFreePort = function (ip) {
   let startPort = minPort;
   minPort += 100;
   return portastic.find({min: startPort, max: 65000, retrieve: 1}, ip)
@@ -39,13 +41,13 @@ let findFreePort = function(ip) {
     }
     return port;
   });
-}
+};
 
-function portFromEndpoint(endpoint) {
+function portFromEndpoint (endpoint) {
   return endpoint.match(/:(\d+)\/?/)[1];
 }
 
-function createEndpoint() {
+function createEndpoint () {
   let myIp = ip.address();
 
   return findFreePort(myIp)
@@ -54,7 +56,7 @@ function createEndpoint() {
     });
 }
 
-const endpointToUrl = function(endpoint) {
+const endpointToUrl = function (endpoint) {
   if (endpoint.substr(0, 6) === 'ssl://') {
     return 'https://' + endpoint.substr(6);
   }
@@ -66,7 +68,7 @@ const endpointToUrl = function(endpoint) {
   }
 
   return 'http' + endpoint.substr(pos);
-}
+};
 
 exports.endpointToUrl = endpointToUrl;
 exports.portFromEndpoint = portFromEndpoint;
