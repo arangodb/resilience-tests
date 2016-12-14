@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --no-timeouts"
+    "test": "BLUEBIRD_DEBUG=1 mocha --no-timeouts --full-trace"
   },
   "author": "Andreas Streichardt <mop@arangodb.com>",
   "license": "Apache-2.0",
