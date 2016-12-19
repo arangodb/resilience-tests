@@ -153,28 +153,27 @@ describe('Agency', function () {
       });
     });
   });
-  it('should reintegrate a crashed follower', function () {
-    throw new Error('hasi');
-    // let data = {'koeln': 'sued'};
-    // return writeData(leader, data)
-    // .then(() => {
-    //   return instanceManager.kill(followers[0], 'SIGKILL');
-    // })
-    // .then(() => {
-    //   return instanceManager.restart(followers[0]);
-    // })
-    // .then(() => {
-    //   return agencyRequest({
-    //     method: 'POST',
-    //     url: endpointToUrl(followers[0].endpoint) + '/_api/agency/read',
-    //     json: true,
-    //     body: [['/']]
-    //   });
-    // })
-    // .then(result => {
-    //   expect(result).to.be.instanceof(Array);
-    //   expect(result[0]).to.eql(data);
-    // });
+  it('should reintegrate a crashed follower', function() {
+    let data = {'koeln': 'sued'};
+    return writeData(leader, data)
+    .then(() => {
+      return instanceManager.kill(followers[0], 'SIGKILL');
+    })
+    .then(() => {
+      return instanceManager.restart(followers[0]);
+    })
+    .then(() => {
+      return agencyRequest({
+        method: 'POST',
+        url: endpointToUrl(followers[0].endpoint) + '/_api/agency/read',
+        json: true,
+        body: [['/']],
+      });
+    })
+    .then(result => {
+      expect(result).to.be.instanceof(Array);
+      expect(result[0]).to.eql(data);
+    })
   });
   it('should have the correct results after a funny fail rotation', function () {
     let promise = Promise.resolve();
