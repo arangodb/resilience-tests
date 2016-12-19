@@ -46,7 +46,7 @@ class InstanceManager {
     return this.runner.firstStart(instance);
   }
 
-  startDbServer (name, options = {}) {
+  startDbServer (name) {
     return this.runner.createEndpoint()
     .then(endpoint => {
       let args = [
@@ -65,7 +65,7 @@ class InstanceManager {
     })[0].endpoint;
   }
 
-  startCoordinator (name, options = {}) {
+  startCoordinator (name) {
     return this.runner.createEndpoint()
     .then(endpoint => {
       let args = [
