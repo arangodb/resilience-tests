@@ -78,6 +78,35 @@ class InstanceManager {
     });
   }
 
+  replace (instance) {
+    const i = this.instances.indexOf(instance);
+    let promise;
+    if (instance.status === 'EXITED') {
+      promise = Promise.resolve();
+    } else {
+      promise = this.kill(instance);
+    }
+    return promise
+    .then(() => {
+      let args = [
+        '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
+        '--cluster.my-role=' + instance.role.toUpperCase(),
+        '--cluster.my-local-info=' + instance.name,
+        '--cluster.my-address=' + instance.endpoint
+      ];
+      return this.startArango(instance.name, instance.endpoint, instance.role, args);
+    })
+    .then((instance) => this.waitForInstance(instance))
+    .then((instance) => {
+      this.instances = [
+        ...this.instances.slice(0, i),
+        instance,
+        ...this.instances.slice(i + 1)
+      ];
+      return instance;
+    });
+  }
+
   startAgency (options = {}) {
     let size = options.agencySize || 1;
     if (options.agencyWaitForSync === undefined) {
