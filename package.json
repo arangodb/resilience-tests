@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "BLUEBIRD_DEBUG=1 mocha --no-timeouts --full-trace",
-    "test-jenkins": "JUNIT_REPORT_PATH=report.xml BLUEBIRD_DEBUG=1 mocha --no-timeouts --full-trace --colors --reporter mocha-jenkins-reporter --reporter dot"
+    "test-jenkins": "JUNIT_REPORT_PATH=report.xml BLUEBIRD_DEBUG=1 mocha --no-timeouts --full-trace --colors --reporter mocha-jenkins-reporter --reporter spec"
   },
   "author": "Andreas Streichardt <mop@arangodb.com>",
   "license": "Apache-2.0",
