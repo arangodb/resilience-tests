@@ -147,8 +147,6 @@ class InstanceManager {
   }
 
   startCluster (numAgents, numCoordinators, numDbServers, options = {}) {
-    console.log('Starting Cluster with A: ' + numAgents + ' C: ' + numCoordinators + ' D: ' + numDbServers);
-
     let agencyOptions = options.agents || {};
     _.extend(agencyOptions, {agencySize: numAgents});
 
