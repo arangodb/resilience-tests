@@ -31,11 +31,6 @@ describe('Failover', function () {
 
   after(function () {
     return instanceManager.cleanup()
-    .then(log => {
-      if (this.currentTest.state === 'failed') {
-        this.currentTest.err.message = log + '\n\n' + this.currentTest.err.message;
-      }
-    });
   });
   it('should fail over to another replica when a server goes down', function () {
     let dbServer = instanceManager.dbServers()[0];
