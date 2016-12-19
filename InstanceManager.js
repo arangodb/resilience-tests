@@ -189,12 +189,12 @@ class InstanceManager {
     }));
   }
 
-  getEndpoint () {
-    return this.coordinators()[0].endpoint;
+  getEndpoint (instance) {
+    return (instance || this.coordinators()[0]).endpoint;
   }
 
-  getEndpointUrl () {
-    return endpointToUrl(this.coordinators()[0].endpoint);
+  getEndpointUrl (instance) {
+    return endpointToUrl(this.getEndpoint());
   }
 
   check () {
