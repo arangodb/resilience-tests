@@ -17,11 +17,12 @@ class InstanceManager {
     if (!this.runner) {
       throw new Error('Must specify RESILIENCE_ARANGO_BASEPATH (source root dir including a "build" folder containing compiled binaries or RESILIENCE_DOCKER_IMAGE to test a docker container');
     }
+    this.currentLog = '';
   }
 
   startArango(name, endpoint, role, args) {
     args.push('--server.authentication=false');
-    
+
     let instance = {
       name,
       role,
@@ -30,6 +31,16 @@ class InstanceManager {
       exitcode: null,
       endpoint,
       args,
+      logFn: line => {
+        if (line.trim().length > 0) {
+          let logLine = instance.name + '(' + process.pid + '): \t' + line;
+          if (process.env.LOG_IMMEDIATE) {
+            console.log(line);
+          } else {
+            this.currentLog += instance.name + '(' + process.pid + '): \t' + line + '\n';
+          }
+        }
+      },
     }
     return this.runner.firstStart(instance);
   }
@@ -52,7 +63,7 @@ class InstanceManager {
       return instance.role == 'agent';
     })[0].endpoint;
   }
-  
+
   startCoordinator(name, options = {}) {
     return this.runner.createEndpoint()
     .then(endpoint => {
@@ -110,11 +121,11 @@ class InstanceManager {
     
     let agencyOptions = options.agents || {};
     _.extend(agencyOptions, {agencySize: numAgents});
-    
+
     return this.startAgency(agencyOptions)
     .then(agents => {
       let agencyEndpoint = agents[0].endpoint;
-    
+
       let promises = [Promise.resolve(agents)];
       let i;
 
@@ -233,6 +244,11 @@ class InstanceManager {
       this.instances = [];
       return this.runner.cleanup();
     })
+    .then(() => {
+      let log = this.currentLog;
+      this.currentLog = '';
+      return log;
+    });
   }
 
   dbServers() {

@@ -83,7 +83,12 @@ describe('Agency', function() {
   });
 
   afterEach(function() {
-    return instanceManager.cleanup();
+    return instanceManager.cleanup()
+    .then(log => {
+      if (this.currentTest.state == 'failed') {
+        this.currentTest.err.message = log + '\n\n' + this.currentTest.err.message;
+      }
+    });
   });
 
   it('should failover when stopping the leader', function() {
@@ -147,6 +152,7 @@ describe('Agency', function() {
     })
   });
   it('should reintegrate a crashed follower', function() {
+    throw new Error('hasi');
     let data = {'koeln': 'sued'};
     return writeData(leader, data)
     .then(() => {

@@ -3,8 +3,8 @@ const expect = require('chai').expect;
 const arangojs = require('arangojs');
 
 describe('Setup', function() {
+  let instanceManager = new InstanceManager('setup');
   it('should be possible to stop and restart a cluster', function() {
-    let instanceManager = new InstanceManager('setup');
     let db;
     return instanceManager.startCluster(1, 2, 2)
     .then(() => {
@@ -29,4 +29,11 @@ describe('Setup', function() {
       expect(result.count).to.equal(0);
     })
   });
+
+  afterEach(function() {
+    if (this.currentTest.state == 'failed') {
+      this.currentTest.err.message = instanceManager.currentLog + '\n\n' + this.currentTest.err.message;
+    }
+    instanceManager.currentLog = '';
+  })
 });
