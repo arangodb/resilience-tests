@@ -106,7 +106,7 @@ class InstanceManager {
           return this.startArango('agency-' + (index + 1), endpoint, 'agent', args);
         })
         .then(instance => {
-          return instances.concat([instance]);
+          return [...instances, instance];
         });
       });
     }
@@ -132,7 +132,7 @@ class InstanceManager {
         return servers.then(instances => {
           return this.startCoordinator('coordinator-' + (index + 1), coordinatorOptions)
           .then(instance => {
-            return instances.concat(instance);
+            return [...instances, instance];
           });
         });
       }, Promise.resolve([]));
@@ -143,7 +143,7 @@ class InstanceManager {
         return dbServers.then(instances => {
           return this.startDbServer('dbServer-' + (index + 1), dbServerOptions)
           .then(instance => {
-            return instances.concat(instance);
+            return [...instances, instance];
           });
         });
       }, Promise.resolve([]));
@@ -168,7 +168,7 @@ class InstanceManager {
 
   waitForInstance (instance) {
     if (instance.status !== 'RUNNING') {
-      return Promise.reject('Instance ' + instance.name + ' is down!');
+      return Promise.reject(new Error('Instance ' + instance.name + ' is down!'));
     }
     return rp(endpointToUrl(instance.endpoint) + '/_api/version')
     .then(() => {
@@ -290,7 +290,7 @@ class InstanceManager {
   restart (instance) {
     let index = this.instances.indexOf(instance);
     if (index === -1) {
-      throw new Error('Couldn\'t find instance', instance);
+      throw new Error('Couldn\'t find instance ' + instance.name);
     }
 
     return this.runner.restart(instance)
