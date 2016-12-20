@@ -295,8 +295,7 @@ class InstanceManager {
   }
 
   kill (instance, signal = 'SIGTERM') {
-    let index = this.instances.indexOf(instance);
-    if (index === -1) {
+    if (!this.instances.includes(instance)) {
       throw new Error('Couldn\'t find instance ' + instance.name);
     }
 
@@ -335,8 +334,7 @@ class InstanceManager {
   }
 
   restart (instance) {
-    let index = this.instances.indexOf(instance);
-    if (index === -1) {
+    if (!this.instances.includes(instance)) {
       throw new Error('Couldn\'t find instance ' + instance.name);
     }
 
