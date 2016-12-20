@@ -73,6 +73,21 @@ class DockerRunner {
     return startInstance(instance);
   }
 
+  destroy (instance) {
+    return this.locateDocker()
+    .then(dockerBin => {
+      return new Promise((resolve, reject) => {
+        exec(dockerBin + ' rm -fv ' + this.containerName(instance), err => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+    });
+  }
+
   cleanup () {
     return Promise.all(this.containerNames.map(containerName => {
       return this.locateDocker()

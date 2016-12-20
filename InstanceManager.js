@@ -314,6 +314,26 @@ class InstanceManager {
     });
   }
 
+  destroy (instance) {
+    let promise;
+    if (this.instances.includes(instance)) {
+      promise = this.kill(instance);
+    } else {
+      promise = Promise.resolve();
+    }
+    return promise
+    .then(() => this.runner.destroy(instance))
+    .then(() => {
+      const i = this.instances.indexOf(instance);
+      if (i !== -1) {
+        this.instances = [
+          ...this.instances.slice(0, i),
+          ...this.instances.slice(i + 1)
+        ];
+      }
+    });
+  }
+
   restart (instance) {
     let index = this.instances.indexOf(instance);
     if (index === -1) {

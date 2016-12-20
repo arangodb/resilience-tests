@@ -36,11 +36,10 @@ class LocalRunner {
       instance.binary = arangod;
     }
 
-    return rmRf(dir)
-    .then(() => Promise.all([
+    return Promise.all([
       mkdirp(dataDir),
       mkdirp(appsDir)
-    ]))
+    ])
     .then(() => {
       return startInstance(instance);
     });
@@ -48,6 +47,10 @@ class LocalRunner {
 
   restart (instance) {
     return startInstance(instance);
+  }
+
+  destroy (instance) {
+    return rmRf(path.join(this.rootDir, instance.name));
   }
 
   cleanup () {
