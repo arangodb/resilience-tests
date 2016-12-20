@@ -155,7 +155,7 @@ class InstanceManager {
       let promises = [Promise.resolve(agents)];
 
       let coordinatorOptions = options.coordinators || {};
-      let coordinators = Array.from(Array(numDbServers).keys()).reduce((servers, index) => {
+      let coordinators = Array.from(Array(numCoordinators).keys()).reduce((servers, index) => {
         return servers.then(instances => {
           return this.startCoordinator('coordinator-' + (index + 1), coordinatorOptions)
           .then(instance => {
