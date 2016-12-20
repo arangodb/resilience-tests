@@ -153,7 +153,7 @@ describe('Agency', function () {
       });
     });
   });
-  it('should reintegrate a crashed follower', function() {
+  it('should reintegrate a crashed follower', function () {
     let data = {'koeln': 'sued'};
     return writeData(leader, data)
     .then(() => {
@@ -167,13 +167,13 @@ describe('Agency', function () {
         method: 'POST',
         url: endpointToUrl(followers[0].endpoint) + '/_api/agency/read',
         json: true,
-        body: [['/']],
+        body: [['/']]
       });
     })
     .then(result => {
       expect(result).to.be.instanceof(Array);
       expect(result[0]).to.eql(data);
-    })
+    });
   });
   it('should have the correct results after a funny fail rotation', function () {
     let promise = Promise.resolve();
