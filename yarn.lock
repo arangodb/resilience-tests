@@ -40,15 +40,16 @@ ansi-styles@^2.2.1:
   resolved "https://registry.yarnpkg.com/ansi-styles/-/ansi-styles-2.2.1.tgz#b432dd3358b634cf75e1e4664368240533c1ddbe"
 
 arangojs@^5.0.3:
-  version "5.4.1"
-  resolved "https://registry.yarnpkg.com/arangojs/-/arangojs-5.4.1.tgz#be0d877c8bcfb18f9f81f59e1413809fb2547666"
+  version "5.4.2"
+  resolved "https://registry.yarnpkg.com/arangojs/-/arangojs-5.4.2.tgz#2b7b71e2de844526e740d18ad6a7949c453eb6c4"
   dependencies:
     es6-error "^4.0.0"
     http-errors "^1.5.0"
     linkedlist "^1.0.1"
     multi-part "^2.0.0"
+    retry "^0.10.0"
     utf8-length "^0.0.1"
-    xhr "^2.3.0"
+    xhr "^2.3.1"
 
 argparse@^1.0.7:
   version "1.0.9"
@@ -245,11 +246,17 @@ dashdash@^1.12.0:
   dependencies:
     assert-plus "^1.0.0"
 
-debug@2.2.0, debug@^2.1.1, debug@^2.2.0:
+debug@2.2.0:
   version "2.2.0"
   resolved "https://registry.yarnpkg.com/debug/-/debug-2.2.0.tgz#f87057e995b1a1f6ae6a4960664137bc56f039da"
   dependencies:
     ms "0.7.1"
+
+debug@^2.1.1, debug@^2.2.0:
+  version "2.5.1"
+  resolved "https://registry.yarnpkg.com/debug/-/debug-2.5.1.tgz#9107bb4a506052ec2a02314bc606313ed2b921c1"
+  dependencies:
+    ms "0.7.2"
 
 deep-eql@^0.1.3:
   version "0.1.3"
@@ -528,9 +535,20 @@ getpass@^0.1.1:
   dependencies:
     assert-plus "^1.0.0"
 
-glob@7.0.5, glob@^7.0.0, glob@^7.0.3, glob@^7.0.5:
+glob@7.0.5:
   version "7.0.5"
   resolved "https://registry.yarnpkg.com/glob/-/glob-7.0.5.tgz#b4202a69099bbb4d292a7c1b95b6682b67ebdc95"
+  dependencies:
+    fs.realpath "^1.0.0"
+    inflight "^1.0.4"
+    inherits "2"
+    minimatch "^3.0.2"
+    once "^1.3.0"
+    path-is-absolute "^1.0.0"
+
+glob@^7.0.0, glob@^7.0.3, glob@^7.0.5:
+  version "7.1.1"
+  resolved "https://registry.yarnpkg.com/glob/-/glob-7.1.1.tgz#805211df04faaf1c63a3600306cdf5ade50b2ec8"
   dependencies:
     fs.realpath "^1.0.0"
     inflight "^1.0.4"
@@ -921,6 +939,10 @@ ms@0.7.1:
   version "0.7.1"
   resolved "https://registry.yarnpkg.com/ms/-/ms-0.7.1.tgz#9cd13c03adbff25b65effde7ce864ee952017098"
 
+ms@0.7.2:
+  version "0.7.2"
+  resolved "https://registry.yarnpkg.com/ms/-/ms-0.7.2.tgz#ae25cf2512b3885a1d95d7f037868d8431124765"
+
 multi-part@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/multi-part/-/multi-part-2.0.0.tgz#674f53b432f850cf8cc02d30d21f2064e309563c"
@@ -1127,6 +1149,10 @@ restore-cursor@^1.0.1:
   dependencies:
     exit-hook "^1.0.0"
     onetime "^1.0.0"
+
+retry@^0.10.0:
+  version "0.10.1"
+  resolved "https://registry.yarnpkg.com/retry/-/retry-0.10.1.tgz#e76388d217992c252750241d3d3956fed98d8ff4"
 
 rimraf-promise@^2.0.0:
   version "2.0.0"
@@ -1355,9 +1381,9 @@ write@^0.2.1:
   dependencies:
     mkdirp "^0.5.1"
 
-xhr@^2.3.0:
-  version "2.3.1"
-  resolved "https://registry.yarnpkg.com/xhr/-/xhr-2.3.1.tgz#9e09e45ef103e3efa2b4c650a01517ead4c0f92e"
+xhr@^2.3.1:
+  version "2.3.2"
+  resolved "https://registry.yarnpkg.com/xhr/-/xhr-2.3.2.tgz#84bdc6c12ca60b15a77cbe82442894b8f587ae74"
   dependencies:
     global "~4.3.0"
     is-function "^1.0.1"
