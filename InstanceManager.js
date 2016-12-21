@@ -153,6 +153,37 @@ class InstanceManager {
     });
   }
 
+  findPrimaryDbServer (collectionName) {
+    const baseUrl = endpointToUrl(this.getAgencyEndpoint());
+    return rp({
+      method: 'POST',
+      uri: baseUrl + '/_api/agency/read',
+      json: true,
+      body: [['/arango/Plan/Collections/_system', '/arango/Current/ServersRegistered']]
+    })
+    .then(([info]) => {
+      const collections = info.arango.Plan.Collections._system;
+      const servers = info.arango.Current.ServersRegistered;
+      for (const id of Object.keys(collections)) {
+        const collection = collections[id];
+        if (collection.name !== collectionName) {
+          continue;
+        }
+        const shards = collection.shards;
+        const shardsId = Object.keys(shards)[0];
+        const uuid = shards[shardsId][0];
+        const endpoint = servers[uuid].endpoint;
+        const dbServers = this.dbServers()
+        .filter((instance) => instance.endpoint === endpoint);
+        if (!dbServers.length) {
+          return Promise.reject(new Error(`Unknown endpoint "${endpoint}"`));
+        }
+        return dbServers[0];
+      }
+      return Promise.reject(new Error(`Unknown collection "${collectionName}"`));
+    });
+  }
+
   startCluster (numAgents, numCoordinators, numDbServers, options = {}) {
     let agencyOptions = options.agents || {};
     _.extend(agencyOptions, {agencySize: numAgents});
