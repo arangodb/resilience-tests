@@ -5,6 +5,20 @@ const crypto = require('crypto');
 const portFromEndpoint = require('./common.js').portFromEndpoint;
 const startInstance = require('./common.js').startInstance;
 const exec = require('child_process').exec;
+const spawn = require('child_process').spawn;
+
+let syncExec = function(binary, args) {
+  return new Promise((resolve, reject) => {
+    let process = spawn(binary, args);
+    process.on('close', code => {
+      if (code != 0) {
+        reject(code);
+      } else {
+        resolve(code);
+      }
+    });
+  });
+}
 
 class DockerRunner {
   constructor (image) {
@@ -43,6 +57,7 @@ class DockerRunner {
     .then(dockerBin => {
       instance.binary = dockerBin;
       instance.args.push('--server.endpoint=tcp://0.0.0.0:8529');
+      instance.arangodArgs = instance.args.slice();
       let dockerArgs = [
         'run',
         '-e', 'ARANGO_NO_AUTH=1',
@@ -90,6 +105,34 @@ class DockerRunner {
     }))
     .then(() => {
       this.containerNames = [];
+    });
+  }
+
+  updateEndpoint(instance, endpoint) {
+    instance.endpoint = endpoint;
+    return this.locateDocker()
+    .then(dockerBinary => {
+      return syncExec(dockerBinary, ['commit', this.containerName(instance), this.containerName(instance) + '-tmp-container'])
+      .then(() => {
+        return syncExec(dockerBinary, ['rm', '-f', this.containerName(instance)]);
+      })
+      .then(() => {
+        let dockerArgs = [
+          'create',
+          '-e', 'ARANGO_NO_AUTH=1',
+          '-p', portFromEndpoint(instance.endpoint) + ':8529',
+          '--name=' + this.containerName(instance),
+          this.containerName(instance) + '-tmp-container',
+          'arangod'
+        ];
+        return syncExec(dockerBinary, dockerArgs.concat(instance.arangodArgs));
+      })
+      .then(() => {
+        return syncExec(dockerBinary, ['rmi', '-f', this.containerName(instance) + '-tmp-container']);
+      })
+    })
+    .catch(err => {
+      return Promise.reject('Got an unhandled error ' + err);
     });
   }
 }

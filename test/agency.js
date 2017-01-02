@@ -207,4 +207,62 @@ describe('Agency', function () {
       expect(result[0]).to.eql({'subba': instanceManager.instances.length * 2 - 1});
     });
   });
+  it('should reintegrate a failed follower starting with a new endpoint', function() {
+    return instanceManager.kill(followers[0])
+    .then(() => {
+      return instanceManager.assignNewEndpoint(followers[0]);
+    })
+    .then(() => {
+      return instanceManager.restart(followers[0]);
+    })
+    .then(() => {
+      return rp({
+        url: endpointToUrl(followers[0].endpoint) + '/_api/agency/config',
+        json: true
+      })
+      .then(result => {
+        expect(result.leaderId).to.not.be.empty;
+        expect(result.configuration.pool[result.configuration.id]).to.equal(followers[0].endpoint);
+        return result.configuration.id;
+      })
+    })
+    .then(followerId => {
+      return rp({
+        url: endpointToUrl(leader.endpoint) + '/_api/agency/config',
+        json: true
+      })
+      .then(result => {
+        expect(result.configuration.pool[followerId]).to.equal(followers[0].endpoint);
+      })
+    })
+  });
+  it('should reintegrate a failed leader starting with a new endpoint', function() {
+    return instanceManager.kill(leader)
+    .then(() => {
+      return instanceManager.assignNewEndpoint(leader);
+    })
+    .then(() => {
+      return instanceManager.restart(leader);
+    })
+    .then(() => {
+      return rp({
+        url: endpointToUrl(leader.endpoint) + '/_api/agency/config',
+        json: true
+      })
+      .then(result => {
+        expect(result.leaderId).to.not.be.empty;
+        expect(result.configuration.pool[result.configuration.id]).to.equal(leader.endpoint);
+        return result.configuration.id;
+      })
+    })
+    .then(oldLeaderId => {
+      return rp({
+        url: endpointToUrl(followers[0].endpoint) + '/_api/agency/config',
+        json: true
+      })
+      .then(result => {
+        expect(result.configuration.pool[oldLeaderId]).to.equal(leader.endpoint);
+      })
+    })
+  });
 });
