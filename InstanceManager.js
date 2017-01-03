@@ -356,6 +356,12 @@ class InstanceManager {
 
     return createNewEndpoint()
     .then(endpoint => {
+      ['server.endpoint', 'agency.my-address', 'cluster.my-address'].filter(arg => {
+        index = instance.args.indexOf('--' + arg + '=' + instance.endpoint);
+        if (index !== -1) {
+          instance.args[index] = '--' + arg + '=' + endpoint;
+        }
+      });
       return this.runner.updateEndpoint(instance, endpoint);
     });
   }

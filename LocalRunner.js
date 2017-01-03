@@ -46,12 +46,7 @@ class LocalRunner {
   }
 
   updateEndpoint(instance, endpoint) {
-    let index = instance.args.indexOf('--server.endpoint=' + instance.endpoint);
-    if (index === -1) {
-      throw new Error('server enndpoint not found in old command line');
-    }
     instance.endpoint = endpoint;
-    instance.args[index] = '--server.endpoint=' + instance.endpoint;
   }
 
   restart (instance) {

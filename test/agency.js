@@ -216,9 +216,15 @@ describe('Agency', function () {
       return instanceManager.restart(followers[0]);
     })
     .then(() => {
-      return rp({
-        url: endpointToUrl(followers[0].endpoint) + '/_api/agency/config',
-        json: true
+      return new Promise((resolve, reject) => {
+        // mop: allow some time for updates
+        setTimeout(resolve, 1000);
+      })
+      .then(() => {
+        return rp({
+          url: endpointToUrl(followers[0].endpoint) + '/_api/agency/config',
+          json: true
+        })
       })
       .then(result => {
         expect(result.leaderId).to.not.be.empty;
@@ -245,9 +251,14 @@ describe('Agency', function () {
       return instanceManager.restart(leader);
     })
     .then(() => {
-      return rp({
-        url: endpointToUrl(leader.endpoint) + '/_api/agency/config',
-        json: true
+      return new Promise((resolve, reject) => {
+        setTimeout(resolve, 1000);
+      })
+      .then(() => {
+        return rp({
+          url: endpointToUrl(leader.endpoint) + '/_api/agency/config',
+          json: true
+        })
       })
       .then(result => {
         expect(result.leaderId).to.not.be.empty;
