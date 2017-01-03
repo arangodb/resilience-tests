@@ -30,7 +30,7 @@ describe('Failover', function () {
   });
 
   after(function () {
-    return instanceManager.cleanup()
+    return instanceManager.cleanup();
   });
   it('should fail over to another replica when a server goes down', function () {
     let dbServer = instanceManager.dbServers()[0];

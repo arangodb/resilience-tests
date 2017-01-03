@@ -19,6 +19,9 @@ class InstanceManager {
       throw new Error('Must specify RESILIENCE_ARANGO_BASEPATH (source root dir including a "build" folder containing compiled binaries or RESILIENCE_DOCKER_IMAGE to test a docker container');
     }
     this.currentLog = '';
+    this.agentCounter = 0;
+    this.coordinatorCounter = 0;
+    this.dbServerCounter = 0;
   }
 
   startArango (name, endpoint, role, args) {
@@ -36,7 +39,7 @@ class InstanceManager {
         if (line.trim().length > 0) {
           let logLine = instance.name + '(' + process.pid + '): \t' + line;
           if (process.env.LOG_IMMEDIATE) {
-            console.log(line);
+            console.log(logLine);
           } else {
             this.currentLog += logLine + '\n';
           }
@@ -79,30 +82,34 @@ class InstanceManager {
   }
 
   replace (instance) {
-    const i = this.instances.indexOf(instance);
-    let promise;
-    if (instance.status === 'EXITED') {
-      promise = Promise.resolve();
-    } else {
-      promise = this.kill(instance);
+    let name, role;
+    switch (instance.role) {
+      case 'coordinator':
+        this.coordinatorCounter++;
+        name = 'coordinator-' + this.coordinatorCounter;
+        role = 'COORDINATOR';
+        break;
+      case 'primary':
+        this.dbServerCounter++;
+        name = 'dbServer-' + this.dbServerCounter;
+        role = 'PRIMARY';
+        break;
+      default:
+        throw new Error('Can only replace coordinators/dbServers');
     }
-    return promise
-    .then(() => {
-      let args = [
-        '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
-        '--cluster.my-role=' + instance.role.toUpperCase(),
-        '--cluster.my-local-info=' + instance.name,
-        '--cluster.my-address=' + instance.endpoint
-      ];
-      return this.startArango(instance.name, instance.endpoint, instance.role, args);
-    })
+    if (this.instances.includes(instance)) {
+      throw new Error('Instance must be destroyed before it can be replaced');
+    }
+    let args = [
+      '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
+      '--cluster.my-role=' + role,
+      '--cluster.my-local-info=' + name,
+      '--cluster.my-address=' + instance.endpoint
+    ];
+    return this.startArango(name, instance.endpoint, instance.role, args)
     .then((instance) => this.waitForInstance(instance))
     .then((instance) => {
-      this.instances = [
-        ...this.instances.slice(0, i),
-        instance,
-        ...this.instances.slice(i + 1)
-      ];
+      this.instances.push(instance);
       return instance;
     });
   }
@@ -118,7 +125,6 @@ class InstanceManager {
       promise = promise.then(instances => {
         return this.runner.createEndpoint()
         .then(endpoint => {
-          let index = instances.length;
           let args = [
             '--agency.activate=true',
             '--agency.size=' + size,
@@ -127,12 +133,13 @@ class InstanceManager {
             '--agency.supervision=true',
             '--agency.my-address=' + endpoint
           ];
-          if (index === 0) {
+          if (instances.length === 0) {
             args.push('--agency.endpoint=' + endpoint);
           } else {
             args.push('--agency.endpoint=' + instances[0].endpoint);
           }
-          return this.startArango('agency-' + (index + 1), endpoint, 'agent', args);
+          this.agentCounter++;
+          return this.startArango('agency-' + this.agentCounter, endpoint, 'agent', args);
         })
         .then(instance => {
           return [...instances, instance];
@@ -146,6 +153,37 @@ class InstanceManager {
     });
   }
 
+  findPrimaryDbServer (collectionName) {
+    const baseUrl = endpointToUrl(this.getAgencyEndpoint());
+    return rp({
+      method: 'POST',
+      uri: baseUrl + '/_api/agency/read',
+      json: true,
+      body: [['/arango/Plan/Collections/_system', '/arango/Current/ServersRegistered']]
+    })
+    .then(([info]) => {
+      const collections = info.arango.Plan.Collections._system;
+      const servers = info.arango.Current.ServersRegistered;
+      for (const id of Object.keys(collections)) {
+        const collection = collections[id];
+        if (collection.name !== collectionName) {
+          continue;
+        }
+        const shards = collection.shards;
+        const shardsId = Object.keys(shards)[0];
+        const uuid = shards[shardsId][0];
+        const endpoint = servers[uuid].endpoint;
+        const dbServers = this.dbServers()
+        .filter((instance) => instance.endpoint === endpoint);
+        if (!dbServers.length) {
+          return Promise.reject(new Error(`Unknown endpoint "${endpoint}"`));
+        }
+        return dbServers[0];
+      }
+      return Promise.reject(new Error(`Unknown collection "${collectionName}"`));
+    });
+  }
+
   startCluster (numAgents, numCoordinators, numDbServers, options = {}) {
     let agencyOptions = options.agents || {};
     _.extend(agencyOptions, {agencySize: numAgents});
@@ -155,9 +193,10 @@ class InstanceManager {
       let promises = [Promise.resolve(agents)];
 
       let coordinatorOptions = options.coordinators || {};
-      let coordinators = Array.from(Array(numDbServers).keys()).reduce((servers, index) => {
+      let coordinators = Array.from(Array(numCoordinators).keys()).reduce((servers) => {
         return servers.then(instances => {
-          return this.startCoordinator('coordinator-' + (index + 1), coordinatorOptions)
+          this.coordinatorCounter++;
+          return this.startCoordinator('coordinator-' + this.coordinatorCounter, coordinatorOptions)
           .then(instance => {
             return [...instances, instance];
           });
@@ -166,9 +205,10 @@ class InstanceManager {
       promises.push(coordinators);
 
       let dbServerOptions = options.dbservers || {};
-      let dbServers = Array.from(Array(numDbServers).keys()).reduce((dbServers, index) => {
-        return dbServers.then(instances => {
-          return this.startDbServer('dbServer-' + (index + 1), dbServerOptions)
+      let dbServers = Array.from(Array(numDbServers).keys()).reduce((servers) => {
+        return servers.then(instances => {
+          this.dbServerCounter++;
+          return this.startDbServer('dbServer-' + this.dbServerCounter, dbServerOptions)
           .then(instance => {
             return [...instances, instance];
           });
@@ -267,6 +307,9 @@ class InstanceManager {
     return this.shutdownCluster()
     .then(() => {
       this.instances = [];
+      this.agentCounter = 0;
+      this.coordinatorCounter = 0;
+      this.dbServerCounter = 0;
       return this.runner.cleanup();
     })
     .then(() => {
@@ -318,8 +361,7 @@ class InstanceManager {
   }
 
   kill (instance, signal = 'SIGTERM') {
-    let index = this.instances.indexOf(instance);
-    if (index === -1) {
+    if (!this.instances.includes(instance)) {
       throw new Error('Couldn\'t find instance ' + instance.name);
     }
 
@@ -337,9 +379,28 @@ class InstanceManager {
     });
   }
 
+  destroy (instance) {
+    let promise;
+    if (this.instances.includes(instance)) {
+      promise = this.kill(instance);
+    } else {
+      promise = Promise.resolve();
+    }
+    return promise
+    .then(() => this.runner.destroy(instance))
+    .then(() => {
+      const i = this.instances.indexOf(instance);
+      if (i !== -1) {
+        this.instances = [
+          ...this.instances.slice(0, i),
+          ...this.instances.slice(i + 1)
+        ];
+      }
+    });
+  }
+
   restart (instance) {
-    let index = this.instances.indexOf(instance);
-    if (index === -1) {
+    if (!this.instances.includes(instance)) {
       throw new Error('Couldn\'t find instance ' + instance.name);
     }
 
