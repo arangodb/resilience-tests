@@ -46,7 +46,7 @@ describe('Agency', function () {
         })
         .then(result => {
           if (result.leaderId === '') {
-            return Promise.reject();
+            return Promise.reject(new Error('no leader'));
           }
           return result.leaderId;
         })
