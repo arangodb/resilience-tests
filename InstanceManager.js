@@ -41,7 +41,7 @@ class InstanceManager {
           if (process.env.LOG_IMMEDIATE) {
             console.log(logLine);
           } else {
-            logLine = logLine.replace(/\x1B/, '');
+            logLine = logLine.replace(/\x1B/g, '');
             this.currentLog += logLine + '\n';
           }
         }
