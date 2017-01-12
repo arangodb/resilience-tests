@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "test": "BLUEBIRD_DEBUG=1 mocha --require ./polyfill --inline-diffs --no-timeouts --full-trace",
-    "test-jenkins": "JUNIT_REPORT_PATH=report.xml BLUEBIRD_DEBUG=1 mocha --require ./polyfill --inline-diffs --no-timeouts --full-trace --reporter mocha-jenkins-reporter --reporter spec"
+    "test-jenkins": "TERM=xterm multi='spec=- xunit=report.xml' BLUEBIRD_DEBUG=1 ./node_modules/mocha/bin/mocha -C --require ./polyfill --inline-diffs --no-timeouts --full-trace --reporter mocha-multi"
   },
   "author": "Andreas Streichardt <mop@arangodb.com>",
   "license": "Apache-2.0",
@@ -18,7 +18,7 @@
     "lodash": "^4.15.0",
     "mkdirp-promise": "^3.0.1",
     "mocha": "^3.0.2",
-    "mocha-jenkins-reporter": "^0.3.3",
+    "mocha-multi": "^0.10.0",
     "portastic": "^1.0.1",
     "request": "^2.74.0",
     "request-promise": "^4.1.1",
