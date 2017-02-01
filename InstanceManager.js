@@ -37,7 +37,7 @@ class InstanceManager {
       args,
       logFn: line => {
         if (line.trim().length > 0) {
-          let logLine = instance.name + '(' + process.pid + '): \t' + line;
+          let logLine = instance.name + '(' + instance.process.pid + '): \t' + line;
           if (process.env.LOG_IMMEDIATE) {
             console.log(logLine);
           } else {
