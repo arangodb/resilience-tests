@@ -182,13 +182,16 @@ describe('Agency', function () {
         let waitTime = 50;
         let maxRetries = 100;
         return fn()
-        .catch(err => {
+        .then(result => {
+          return result;
+        }, err => {
           if (retries++ > maxRetries) {
             return Promise.reject('Couldn\'t find leader after ' + retries + ' retries');
           } else if (err.statusCode == 503) {
             return new Promise((resolve, reject) => {
               setTimeout(function() {
-                return retryUntilUpInner(fn);
+                retryUntilUpInner(fn)
+                .then(resolve, reject);
               }, waitTime);
             });
           } else {
@@ -196,7 +199,7 @@ describe('Agency', function () {
           }
         });
       }
-      return retryUntilUpInner(fn);
+      return retryUntilUpInner(fn)
     }
     let promise = Promise.resolve();
     for (let i = 0; i < instanceManager.instances.length * 2; i++) {
@@ -231,7 +234,7 @@ describe('Agency', function () {
     })
     .then(result => {
       expect(result).to.be.instanceof(Array);
-      expect(result[0]).to.eql({'subba': instanceManager.instances.length * 2 - 1});
+      expect(result[0]).to.eql({'subba': instanceManager.instances.length * 2});
     });
   });
   it('should reintegrate a failed follower starting with a new endpoint', function() {
