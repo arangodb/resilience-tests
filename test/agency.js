@@ -176,13 +176,38 @@ describe('Agency', function () {
     });
   });
   it('should have the correct results after a funny fail rotation', function () {
+    let retryUntilUp = function(fn) {
+      let retries = 0;
+      let retryUntilUpInner = function(fn) {
+        let waitTime = 50;
+        let maxRetries = 100;
+        return fn()
+        .catch(err => {
+          if (retries++ > maxRetries) {
+            return Promise.reject('Couldn\'t find leader after ' + retries + ' retries');
+          } else if (err.statusCode == 503) {
+            return new Promise((resolve, reject) => {
+              setTimeout(function() {
+                return retryUntilUpInner(fn);
+              }, waitTime);
+            });
+          } else {
+            return Promise.reject(err);
+          }
+        });
+      }
+      return retryUntilUpInner(fn);
+    }
     let promise = Promise.resolve();
     for (let i = 0; i < instanceManager.instances.length * 2; i++) {
       promise = (function (promise, i) {
         return promise.then(() => {
-          let data = {'subba': i};
+          let data = {'subba': {"op": "increment"}};
           let instance = instanceManager.instances[i % instanceManager.instances.length];
-          return writeData(instance, data)
+
+          return retryUntilUp(function() {
+            return writeData(instance, data)
+          })
           .then(() => {
             return instanceManager.kill(instance);
           })
@@ -195,11 +220,13 @@ describe('Agency', function () {
 
     return promise
     .then(() => {
-      return agencyRequest({
-        method: 'POST',
-        url: endpointToUrl(leader.endpoint) + '/_api/agency/read',
-        json: true,
-        body: [['/']]
+      return retryUntilUp(function() {
+        return agencyRequest({
+          method: 'POST',
+          url: endpointToUrl(leader.endpoint) + '/_api/agency/read',
+          json: true,
+          body: [['/']]
+        })
       });
     })
     .then(result => {
