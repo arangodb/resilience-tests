@@ -49,6 +49,36 @@ let waitForReintegration = function(endpoint) {
   });
 };
 
+let waitForLeaderChange = function(oldLeaderEndpoint, followerEndpoint) {
+  let tries = 0;
+  let maxTries = 50;
+  let waitInterval = 50;
+
+  let waitForLeaderChangeInner = function() {
+    if (tries++ > maxTries) {
+      return Promise.reject("Didn't find an updated leader after " + tries + " tries");
+    }
+    return rp({
+      url: endpointToUrl(followerEndpoint) + '/_api/agency/config',
+      json: true,
+    })
+    .then(res => {
+      let currentLeaderEndpoint = res.configuration.pool[res.leaderId];
+      if (currentLeaderEndpoint == oldLeaderEndpoint) {
+        return new Promise((resolve, reject) => {
+          setTimeout(resolve, waitInterval);
+        })
+        .then(() => {
+          return waitForLeaderChangeInner();
+        });
+      } else {
+        return Promise.resolve();
+      }
+    });
+  };
+  return waitForLeaderChangeInner();
+};
+
 describe('Agency', function () {
   let instanceManager = new InstanceManager('agency');
   let leader;
@@ -120,12 +150,9 @@ describe('Agency', function () {
       return instanceManager.kill(leader);
     })
     .then(() => {
-      // mop: well the failover is of course not fully immediately
-      return new Promise((resolve, reject) => {
-        setTimeout(resolve, 100);
-      });
+      return waitForLeaderChange(leader.endpoint, followers[0].endpoint);
     })
-    .then(() => {
+    .then(res => {
       return agencyRequest({
         method: 'POST',
         url: endpointToUrl(followers[0].endpoint) + '/_api/agency/read',
@@ -181,6 +208,9 @@ describe('Agency', function () {
     })
     .then(() => {
       return instanceManager.restart(followers[0]);
+    })
+    .then(() => {
+      return waitForReintegration(followers[0].endpoint);
     })
     .then(() => {
       return agencyRequest({
