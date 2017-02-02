@@ -130,7 +130,7 @@ class InstanceManager {
             '--agency.activate=true',
             '--agency.size=' + size,
             '--agency.pool-size=' + size,
-            '--agency.wait-for-sync=' + wfs,
+            '--agency.wait-for-sync=false',
             '--agency.supervision=true',
             '--server.threads=16',
             '--agency.my-address=' + endpoint
