@@ -118,7 +118,7 @@ class InstanceManager {
   startAgency (options = {}) {
     let size = options.agencySize || 1;
     if (options.agencyWaitForSync === undefined) {
-      options.agencyWaitForSync = true;
+      options.agencyWaitForSync = false;
     }
     const wfs = options.agencyWaitForSync;
     let promise = Promise.resolve([]);
@@ -373,12 +373,7 @@ class InstanceManager {
       throw new Error('Couldn\'t find instance ' + instance.name);
     }
 
-    function sleep (time) {
-      return new Promise((resolve) => setTimeout(resolve, time));
-    }
-    sleep(1000).then(() => {
-      instance.process.kill(signal);
-    });
+    instance.process.kill(signal);
     instance.status = 'KILLED';
     return new Promise((resolve, reject) => {
       let check = function () {

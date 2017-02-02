@@ -31,13 +31,33 @@ let writeData = function (leader, data) {
   });
 };
 
+let waitForReintegration = function(endpoint) {
+  // mop: when reading works again we are reintegrated :)
+  return rp({
+    method: 'POST',
+    url: endpointToUrl(endpoint) + '/_api/agency/read',
+    json: true,
+    body: [["/"]],
+    followRedirects: false,
+  })
+  .catch(err => {
+    if (err.statusCode == 307) {
+      return Promise.resolve();
+    } else {
+      return waitForReintegration(endpoint);
+    }
+  });
+};
+
 describe('Agency', function () {
   let instanceManager = new InstanceManager('agency');
   let leader;
   let followers;
 
   beforeEach(function () {
-    return instanceManager.startAgency({agencySize: 3})
+    // mop: without wait for sync we cannot trust the agency when it said it wrote everything
+    // and we are doing tests to verify this behaviour here
+    return instanceManager.startAgency({agencySize: 3, agencyWaitForSync: true})
     .then(agents => {
       let checkForLeader = function () {
         return rp({
@@ -246,10 +266,7 @@ describe('Agency', function () {
       return instanceManager.restart(followers[0]);
     })
     .then(() => {
-      return new Promise((resolve, reject) => {
-        // mop: allow some time for updates
-        setTimeout(resolve, 1000);
-      })
+      return waitForReintegration(followers[0].endpoint)
       .then(() => {
         return rp({
           url: endpointToUrl(followers[0].endpoint) + '/_api/agency/config',
@@ -281,9 +298,7 @@ describe('Agency', function () {
       return instanceManager.restart(leader);
     })
     .then(() => {
-      return new Promise((resolve, reject) => {
-        setTimeout(resolve, 1000);
-      })
+      return waitForReintegration(leader.endpoint)
       .then(() => {
         return rp({
           url: endpointToUrl(leader.endpoint) + '/_api/agency/config',
