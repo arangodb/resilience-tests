@@ -274,17 +274,17 @@ class InstanceManager {
 
   shutdownCluster () {
     let shutdownPromise;
-    if (this.coordinators().length === 0) {
-      shutdownPromise = Promise.all(this.agents().map(agent => {
+    
+    let nonAgents = [].concat(this.coordinators(), this.dbServers());
+
+    return Promise.all(nonAgents.map(server => {
+      server.process.kill();
+    }))
+    .then(() => {
+      return Promise.all(this.agents().map(agent => {
         return agent.process.kill();
       }));
-    } else {
-      shutdownPromise = rp({
-        method: 'DELETE',
-        uri: endpointToUrl(this.getEndpoint()) + '/_admin/shutdown?shutdown_cluster=1'
-      });
-    }
-    return shutdownPromise
+    })
     .then(() => {
       let checkDown = () => {
         let allDown = this.instances.every(instance => {
