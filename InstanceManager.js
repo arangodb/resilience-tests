@@ -51,6 +51,7 @@ class InstanceManager {
   }
 
   startDbServer (name) {
+    this.dbServerCounter++;
     return this.runner.createEndpoint()
     .then(endpoint => {
       let args = [
@@ -60,6 +61,10 @@ class InstanceManager {
         '--cluster.my-address=' + endpoint
       ];
       return this.startArango(name, endpoint, 'primary', args);
+    })
+    .then(instance => {
+      this.instances.push(instance);
+      return instance;
     });
   }
 
@@ -70,6 +75,7 @@ class InstanceManager {
   }
 
   startCoordinator (name) {
+    this.coordinatorCounter++;
     return this.runner.createEndpoint()
     .then(endpoint => {
       let args = [
@@ -79,6 +85,10 @@ class InstanceManager {
         '--cluster.my-address=' + endpoint
       ];
       return this.startArango(name, endpoint, 'coordinator', args);
+    })
+    .then(instance => {
+      this.instances.push(instance);
+      return instance;
     });
   }
 
@@ -194,40 +204,15 @@ class InstanceManager {
     .then(agents => {
       let promises = [Promise.resolve(agents)];
 
-      let coordinatorOptions = options.coordinators || {};
-      let coordinators = Array.from(Array(numCoordinators).keys()).reduce((servers) => {
-        return servers.then(instances => {
-          this.coordinatorCounter++;
-          return this.startCoordinator('coordinator-' + this.coordinatorCounter, coordinatorOptions)
-          .then(instance => {
-            return [...instances, instance];
-          });
-        });
-      }, Promise.resolve([]));
-      promises.push(coordinators);
-
-      let dbServerOptions = options.dbservers || {};
-      let dbServers = Array.from(Array(numDbServers).keys()).reduce((servers) => {
-        return servers.then(instances => {
-          this.dbServerCounter++;
-          return this.startDbServer('dbServer-' + this.dbServerCounter, dbServerOptions)
-          .then(instance => {
-            return [...instances, instance];
-          });
-        });
-      }, Promise.resolve([]));
-      promises.push(dbServers);
-      return Promise.all(promises);
-    })
-    .then(serverGroups => {
-      let servers = [];
-      serverGroups.forEach(serverGroup => {
-        servers = servers.concat(serverGroup);
+      let coordinators = Array.from(Array(numCoordinators).keys()).map(index => {
+        return this.startCoordinator('coordinator-' + (index+1));
       });
-      return servers;
+      let dbServers = Array.from(Array(numDbServers).keys()).map(index => {
+        return this.startDbServer('dbServer-' + (index+1));
+      });
+      return Promise.all([].concat(coordinators, dbServers));
     })
     .then(servers => {
-      this.instances = servers;
       return this.waitForAllInstances();
     })
     .then(() => {

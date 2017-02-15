@@ -10,6 +10,40 @@ describe('Remove servers', function () {
   let instanceManager = new InstanceManager('remove servers');
   let db;
 
+  let waitForHealth = function(serverEndpoint, maxTime) {
+    let coordinator = instanceManager.coordinators().filter(server => server.status == 'RUNNING')[0];
+    return rp({
+      url: instanceManager.getEndpointUrl(coordinator) + '/_admin/cluster/health',
+      json: true,
+    })
+    .then(health => {
+      health = health.Health;
+      let serverId = Object.keys(health).filter(serverId => {
+        return health[serverId].Endpoint == serverEndpoint;
+      })[0];
+
+      if (serverId === undefined) {
+        return Promise.reject(new Error('Couldn\'t find a server in health struct'));
+      } else {
+        return health[serverId];
+      }
+    })
+    .then(() => {
+      return;
+    }, () => {
+      if (maxTime > Date.now()) {
+        return new Promise((resolve, reject) => {
+          setTimeout(resolve, 100);
+        })
+        .then(() => {
+          return waitForHealth(serverEndpoint, maxTime);
+        });
+      } else {
+        return Promise.reject(new Error('Server did not go failed in time!'));
+      }
+    });
+  };
+
   let waitForFailedHealth = function(serverEndpoint, maxTime) {
     let coordinator = instanceManager.coordinators().filter(server => server.status == 'RUNNING')[0];
     return rp({
@@ -144,13 +178,24 @@ describe('Remove servers', function () {
       });
     });
   });
-  it('should not remove a failed dbserver (yet)', function() {
+  it('should be able to remove a failed dbserver which has no responsibilities', function() {
     return instanceManager.startCluster(1, 2, 2)
     .then(() => {
-      let dbserver = instanceManager.dbServers()[0];
-      return instanceManager.kill(dbserver)
-      .then(() => {
-        return dbserver;
+      return instanceManager.startDbServer('fauler-hund')
+      .then(dbserver => {
+        return instanceManager.waitForAllInstances()
+        .then(() => {
+          return waitForHealth(dbserver.endpoint, Date.now() + 60000);
+        })
+        .then(() => {
+          return dbserver;
+        })
+        .then(() => {
+          return instanceManager.kill(dbserver)
+        })
+        .then(() => {
+          return dbserver;
+        });
       })
     })
     .then(dbserver => {
@@ -179,11 +224,6 @@ describe('Remove servers', function () {
         method: 'post',
         body: serverId,
       });
-    })
-    .then(() => {
-      return Promise.reject(new Error('What? Removing a dbserver should not be possible'));
-    }, err => {
-      expect(err.statusCode).to.eql(400);
-    })
+    });
   });
 });
