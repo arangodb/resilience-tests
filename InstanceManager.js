@@ -248,7 +248,7 @@ class InstanceManager {
   }
 
   getEndpointUrl (instance) {
-    return endpointToUrl(this.getEndpoint());
+    return endpointToUrl(this.getEndpoint(instance));
   }
 
   check () {

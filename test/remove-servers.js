@@ -7,6 +7,30 @@ const rp = require('request-promise');
 
 
 describe('Remove servers', function () {
+  before(function() {
+    // should really be implemented somewhere more central :S
+    return instanceManager.startAgency({agencySize: 1, agencyWaitForSync: false})
+    .then(agents => {
+      return instanceManager.waitForAllInstances();
+    })
+    .then(agents => {
+      return rp({
+        url: instanceManager.getEndpointUrl(agents[0]) + '/_api/version',
+        json: true,
+      })
+    })
+    .then(version => {
+      let parts = version.version.split('.').map(num => parseInt(num, 10));
+      if (parts[0] < 3 || parts[1] < 2) {
+        this.skip();
+      }
+    })
+    .then(() => {
+      instanceManager.currentLog = '';
+      return instanceManager.cleanup();
+    });
+  });
+
   let instanceManager = new InstanceManager('remove servers');
   let db;
 
