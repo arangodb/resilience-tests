@@ -7,9 +7,10 @@ const rp = require('request-promise');
 
 
 describe('Remove servers', function () {
-  before(function() {
+  let instanceManager = new InstanceManager('remove servers');
+  before(function(done) {
     // should really be implemented somewhere more central :S
-    return instanceManager.startAgency({agencySize: 1, agencyWaitForSync: false})
+    instanceManager.startAgency({agencySize: 1, agencyWaitForSync: false})
     .then(agents => {
       return instanceManager.waitForAllInstances();
     })
@@ -22,18 +23,28 @@ describe('Remove servers', function () {
     .then(version => {
       let parts = version.version.split('.').map(num => parseInt(num, 10));
       if (parts[0] < 3 || parts[1] < 2) {
-        this.skip();
+        try {
+          this.skip();
+        } catch (e) {
+          // this is sad...somehow there will always be an error like this without the explicit done and catch here :S
+          //(node:28217) Warning: a promise was rejected with a non-error: [object Object]
+          //Unhandled rejection (<{"message":"async skip; aborting execu...>, no stack trace)
+        }
       }
     })
     .then(() => {
       instanceManager.currentLog = '';
       return instanceManager.cleanup();
+    })
+    .then(() => {
+      done();
+    })
+    .catch(e => {
+      done(e);
     });
   });
-
-  let instanceManager = new InstanceManager('remove servers');
+  
   let db;
-
   let waitForHealth = function(serverEndpoint, maxTime) {
     let coordinator = instanceManager.coordinators().filter(server => server.status == 'RUNNING')[0];
     return rp({
