@@ -249,28 +249,36 @@ describe('Agency', function () {
         return instanceManager.restart(leader);
       })
       .then(() => {
-        return rp({
-          method: 'POST',
-          url: endpointToUrl(leader.endpoint) + '/_api/agency/read',
-          json: true,
-          body: [['/']],
-          followRedirects: false
-        })
-        .then(() => {
-          return Promise.all([
-            rp({
-              url: endpointToUrl(leader.endpoint) + '/_api/agency/config'
-            }),
-            rp({
-              url: endpointToUrl(followers[0].endpoint) + '/_api/agency/config'
-            })
-          ])
-          .then(results => {
-            throw new Error('It should not report success! It should block all incoming rest requests until it redetermined who the leader is. Configresults: ' + JSON.stringify({leader: results[0], follower: results[1]}));
+        let upButNotLeader = function() {
+          return rp({
+            method: 'POST',
+            url: endpointToUrl(leader.endpoint) + '/_api/agency/read',
+            json: true,
+            body: [['/']],
+            followRedirects: false
+          })
+          .then(() => {
+            return Promise.all([
+              rp({
+                url: endpointToUrl(leader.endpoint) + '/_api/agency/config'
+              }),
+              rp({
+                url: endpointToUrl(followers[0].endpoint) + '/_api/agency/config'
+              })
+            ])
+            .then(results => {
+              throw new Error('It should not report success! It should block all incoming rest requests until it redetermined who the leader is. Configresults: ' + JSON.stringify({leader: results[0], follower: results[1]}));
+            });
+          }, err => {
+            if (err.statusCode == 503) {
+              // retry immediately...we want to find errors and not grant 1s grace time
+              return upButNotLeader();
+            }
+            expect(err.statusCode).to.equal(307);
           });
-        }, err => {
-          expect(err.statusCode).to.equal(307);
-        });
+        }
+
+        return upButNotLeader();
       });
     });
     it('should reintegrate a crashed follower', function () {
