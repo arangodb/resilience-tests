@@ -31,6 +31,7 @@ describe('Move shards', function () {
   after(function () {
     return instanceManager.cleanup();
   });
+  /*
   it('should allow moving shards while writing', function() {
     let stopMoving = false;
 
@@ -135,5 +136,5 @@ describe('Move shards', function () {
       all.sort((a, b) => a < b ? -1 : 1);
       expect(all).to.deep.equal([...Array(10000).keys()]);
     });
-  });
+  });*/
 });
