@@ -128,6 +128,7 @@ describe('Failover', function () {
     })
   });
 
+  /*
   it('should allow importing even when a leader fails', function() {
     let docs = [...Array(10000)].map(function(_,key) {
       return {
@@ -173,7 +174,7 @@ describe('Failover', function () {
     .then(savedDocs => {
       expect(savedDocs.length).to.equal(10007);
     });
-  });
+  });*/
 
   after(function () {
     return instanceManager.cleanup();
