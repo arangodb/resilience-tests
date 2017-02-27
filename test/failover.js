@@ -12,6 +12,45 @@ describe('Failover', function () {
   let instanceManager = new InstanceManager('failover');
   let db;
 
+  
+  let waitForSyncRepl = function(maxTime) {
+    if (Date.now() >= maxTime) {
+      return Promise.reject(new Error('Lousy replication didn\'t come into sync after 30s for 7 documents. That is lol'));
+    }
+    return rp({
+      method: 'POST',
+      url: instanceManager.getEndpointUrl(instanceManager.agents()[0]) + '/_api/agency/read',
+      json: true,
+      body: [['/']],
+    })
+      .then(data => {
+        let plan    = data[0].arango.Plan;
+        let current = data[0].arango.Current;
+        let plannedCollection = Object.keys(plan.Collections['_system']).reduce((result, cid) => {
+          if (result) {
+            return result;
+          }
+
+          if (plan.Collections['_system'][cid].name == 'testcollection') {
+            return plan.Collections['_system'][cid];
+          }
+          return undefined;
+        }, undefined);
+
+        let done = Object.keys(plannedCollection.shards).every(shardName => {
+          return current.Collections['_system'][plannedCollection.id][shardName].servers.length == 2;
+        });
+        if (!done) {
+          return new Promise((resolve, reject) => {
+            setTimeout(resolve, 100);
+          })
+            .then(() => {
+              return waitForSyncRepl.bind(this, Date.now()+30000)();
+            });
+        }
+      });
+  };
+
   let getLeader = function() {
     return rp({
       method: 'POST',
@@ -68,54 +107,15 @@ describe('Failover', function () {
         ]);
       })
       .then(() => {
-        let maxTime = Date.now() + 30000;
-        let waitForSyncRepl = function() {
-          if (Date.now() >= maxTime) {
-            return Promise.reject(new Error('Lousy replication didn\'t come into sync after 30s for 7 documents. That is lol'));
-          }
-          return rp({
-            method: 'POST',
-            url: instanceManager.getEndpointUrl(instanceManager.agents()[0]) + '/_api/agency/read',
-            json: true,
-            body: [['/']],
-          })
-          .then(data => {
-            let plan    = data[0].arango.Plan;
-            let current = data[0].arango.Current;
-            let plannedCollection = Object.keys(plan.Collections['_system']).reduce((result, cid) => {
-              if (result) {
-                return result;
-              }
-
-              if (plan.Collections['_system'][cid].name == 'testcollection') {
-                return plan.Collections['_system'][cid];
-              }
-              return undefined;
-            }, undefined);
-
-            let done = Object.keys(plannedCollection.shards).every(shardName => {
-              return current.Collections['_system'][plannedCollection.id][shardName].servers.length == 2;
-            });
-            if (!done) {
-              return new Promise((resolve, reject) => {
-                setTimeout(resolve, 100);
-              })
-              .then(() => {
-                return waitForSyncRepl();
-              });
-            }
-          });
-        };
-
-        return waitForSyncRepl();
+        return waitForSyncRepl.bind(this, Date.now()+30000)();
       })
     })
   });
 
   it('should fail over to another replica when a server goes down', function () {
     return getLeader()
-    .then(dbServer => {
-      return instanceManager.kill(dbServer);
+      .then(dbServer => {
+        return instanceManager.kill(dbServer);
     })
     .then(() => {
       return db.collection('testcollection').save({'testung': Date.now()});
@@ -128,7 +128,6 @@ describe('Failover', function () {
     })
   });
 
-  /*
   it('should allow importing even when a leader fails', function() {
     let docs = [...Array(10000)].map(function(_,key) {
       return {
@@ -163,7 +162,7 @@ describe('Failover', function () {
       return db.collection('testcollection').count();
     })
     .then(count => {
-      expect(count.count).to.equal(10007);
+      expect(count.count).to.equal(10008);
     })
     .then(() => {
       return db.collection('testcollection').all();
@@ -172,19 +171,22 @@ describe('Failover', function () {
       return cursor.all();
     })
     .then(savedDocs => {
-      expect(savedDocs.length).to.equal(10007);
+      expect(savedDocs.length).to.equal(10008);
     });
-  });*/
+  });
 
   after(function () {
     return instanceManager.cleanup();
   });
 
   afterEach(function() {
-    return Promise.all(
+    return Promise.all( 
       instanceManager.instances.filter(instance => instance.status != 'RUNNING')
-      .map(instance => instanceManager.restart(instance))
+        .map(instance => instanceManager.restart(instance))
+    ).then(
+      waitForSyncRepl.bind(this, Date.now()+30000)
     );
+    // MOPst-circus
     if (this.currentTest.state === 'failed') {
       this.currentTest.err.message = instanceManager.currentLog + '\n\n' + this.currentTest.err.message;
     }

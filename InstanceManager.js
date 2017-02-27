@@ -143,6 +143,8 @@ class InstanceManager {
             '--agency.wait-for-sync=false',
             '--agency.supervision=true',
             '--server.threads=16',
+            '--agency.supervision-frequency=0.5',
+            '--agency.supervision-grace-period=5.0',
             '--agency.my-address=' + endpoint
           ];
           if (instances.length === 0) {
