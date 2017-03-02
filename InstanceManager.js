@@ -404,6 +404,15 @@ class InstanceManager {
       return this.waitForInstance(instance);
     });
   }
+
+  // this will append the logs to the test in case of a failure so
+  // you get a nice combined log of what happened on the server and client
+  moveServerLogs(test) {
+    if (test.state === 'failed') {
+      test.err.message = this.currentLog + '\n\n' + test.err.message;
+    }
+    this.currentLog = '';
+  }
 }
 
 module.exports = InstanceManager;

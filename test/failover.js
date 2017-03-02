@@ -6,13 +6,10 @@ const arangojs = require('arangojs');
 const rp = require('request-promise');
 const fs = require('fs');
 
-
-
 describe('Failover', function () {
   let instanceManager = new InstanceManager('failover');
   let db;
 
-  
   let waitForSyncRepl = function(maxTime) {
     if (Date.now() >= maxTime) {
       return Promise.reject(new Error('Lousy replication didn\'t come into sync after 30s for 7 documents. That is lol'));
@@ -23,32 +20,32 @@ describe('Failover', function () {
       json: true,
       body: [['/']],
     })
-      .then(data => {
-        let plan    = data[0].arango.Plan;
-        let current = data[0].arango.Current;
-        let plannedCollection = Object.keys(plan.Collections['_system']).reduce((result, cid) => {
-          if (result) {
-            return result;
-          }
-
-          if (plan.Collections['_system'][cid].name == 'testcollection') {
-            return plan.Collections['_system'][cid];
-          }
-          return undefined;
-        }, undefined);
-
-        let done = Object.keys(plannedCollection.shards).every(shardName => {
-          return current.Collections['_system'][plannedCollection.id][shardName].servers.length == 2;
-        });
-        if (!done) {
-          return new Promise((resolve, reject) => {
-            setTimeout(resolve, 100);
-          })
-            .then(() => {
-              return waitForSyncRepl.bind(this, Date.now()+30000)();
-            });
+    .then(data => {
+      let plan    = data[0].arango.Plan;
+      let current = data[0].arango.Current;
+      let plannedCollection = Object.keys(plan.Collections['_system']).reduce((result, cid) => {
+        if (result) {
+          return result;
         }
+
+        if (plan.Collections['_system'][cid].name == 'testcollection') {
+          return plan.Collections['_system'][cid];
+        }
+        return undefined;
+      }, undefined);
+
+      let done = Object.keys(plannedCollection.shards).every(shardName => {
+        return current.Collections['_system'][plannedCollection.id][shardName].servers.length == 2;
       });
+      if (!done) {
+        return new Promise((resolve, reject) => {
+          setTimeout(resolve, 100);
+        })
+        .then(() => {
+          return waitForSyncRepl(maxTime);
+        });
+      }
+    });
   };
 
   let getLeader = function() {
@@ -87,7 +84,7 @@ describe('Failover', function () {
       }, undefined);
     })
   }
-  before(function () {
+  beforeEach(function () {
     return instanceManager.startCluster(1, 2, 2)
     .then(() => {
       db = arangojs({
@@ -162,7 +159,7 @@ describe('Failover', function () {
       return db.collection('testcollection').count();
     })
     .then(count => {
-      expect(count.count).to.equal(10008);
+      expect(count.count).to.equal(10007);
     })
     .then(() => {
       return db.collection('testcollection').all();
@@ -171,24 +168,11 @@ describe('Failover', function () {
       return cursor.all();
     })
     .then(savedDocs => {
-      expect(savedDocs.length).to.equal(10008);
+      expect(savedDocs.length).to.equal(10007);
     });
   });
 
-  after(function () {
-    return instanceManager.cleanup();
-  });
-
   afterEach(function() {
-    return Promise.all( 
-      instanceManager.instances.filter(instance => instance.status != 'RUNNING')
-        .map(instance => instanceManager.restart(instance))
-    ).then(
-      waitForSyncRepl.bind(this, Date.now()+30000)
-    );
-    // MOPst-circus
-    if (this.currentTest.state === 'failed') {
-      this.currentTest.err.message = instanceManager.currentLog + '\n\n' + this.currentTest.err.message;
-    }
+    return instanceManager.cleanup();
   });
 });

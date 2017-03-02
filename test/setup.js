@@ -33,9 +33,7 @@ describe('Setup', function () {
   });
 
   afterEach(function () {
-    if (this.currentTest.state === 'failed') {
-      this.currentTest.err.message = instanceManager.currentLog + '\n\n' + this.currentTest.err.message;
-    }
-    instanceManager.currentLog = '';
+    instanceManager.moveServerLogs(this.currentTest);
+    return instanceManager.cleanup();
   });
 });

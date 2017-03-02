@@ -31,10 +31,7 @@ describe('ClusterResilience', function () {
 
   afterEach(function () {
     instanceManager.check();
-    if (this.currentTest.state === 'failed') {
-      this.currentTest.err.message = instanceManager.currentLog + '\n\n' + this.currentTest.err.message;
-    }
-    instanceManager.currentLog = '';
+    instanceManager.moveServerLogs(this.currentTest);
   });
 
   after(function () {

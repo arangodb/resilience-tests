@@ -33,7 +33,6 @@ describe('Remove servers', function () {
       }
     })
     .then(() => {
-      instanceManager.currentLog = '';
       return instanceManager.cleanup();
     })
     .then(() => {
@@ -115,10 +114,7 @@ describe('Remove servers', function () {
   }
 
   afterEach(function () {
-    if (this.currentTest.state === 'failed') {
-      this.currentTest.err.message = instanceManager.currentLog + '\n\n' + this.currentTest.err.message;
-    }
-    instanceManager.currentLog = '';
+    instanceManager.moveServerLogs(this.currentTest);
     return instanceManager.cleanup();
   });
   it('should mark a failed coordinator failed after a while', function() {
