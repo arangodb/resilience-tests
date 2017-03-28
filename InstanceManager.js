@@ -145,7 +145,8 @@ class InstanceManager {
             '--server.threads=16',
             '--agency.supervision-frequency=1.0',
             '--agency.supervision-grace-period=5.0',
-            '--agency.my-address=' + endpoint
+            '--agency.my-address=' + endpoint,
+            '--log.force-direct=true'
           ];
           if (instances.length === 0) {
             args.push('--agency.endpoint=' + endpoint);
