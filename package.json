@@ -5,8 +5,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "BLUEBIRD_DEBUG=1 mocha --require ./polyfill --inline-diffs --no-timeouts --full-trace",
-    "test-jenkins": "TERM=xterm multi='spec=- xunit=report.xml' BLUEBIRD_DEBUG=1 ./node_modules/mocha/bin/mocha -C --require ./polyfill --inline-diffs --no-timeouts --full-trace --reporter mocha-multi"
+    "test": "BLUEBIRD_DEBUG=1 mocha --require ./polyfill --inline-diffs -t 600000 --full-trace",
+    "test-jenkins": "TERM=xterm multi='spec=- xunit=report.xml' BLUEBIRD_DEBUG=1 ./node_modules/mocha/bin/mocha -C --require ./polyfill --inline-diffs -t 600000 --full-trace --reporter mocha-multi"
   },
   "author": "Andreas Streichardt <mop@arangodb.com>",
   "license": "Apache-2.0",
