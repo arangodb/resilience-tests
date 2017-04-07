@@ -5,7 +5,7 @@ const expect = require('chai').expect;
 const arangojs = require('arangojs');
 const rp = require('request-promise');
 
-describe('Move shards', function () {
+describe.skip('Move shards', function () {
   let instanceManager = new InstanceManager('shard-move');
   let db;
   let servers = [];
@@ -29,10 +29,12 @@ describe('Move shards', function () {
     });
   });
   after(function () {
-    return;// instanceManager.cleanup();
+    return instanceManager.cleanup();
   });
 
-  it('should allow moving shards while writing', function() {
+  // it is unstable...reintroduce once supervision overhaul is done and working
+  // this testcase is fully valid
+  it.skip('should allow moving shards while writing', function() {
     let stopMoving = false;
 
     let moveShards = function() {
