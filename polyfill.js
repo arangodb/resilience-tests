@@ -1,2 +1,2 @@
-'use strict';
-global.Promise = require('bluebird');
+"use strict";
+global.Promise = require("bluebird");

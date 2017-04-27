@@ -25,5 +25,11 @@
     "rimraf-promise": "^2.0.0",
     "tmp": "0.0.28",
     "which": "^1.2.10"
+  },
+  "devDependencies": {
+    "babel-eslint": "^7.2.3",
+    "eslint": "^3.19.0",
+    "eslint-config-prettier": "^1.7.0",
+    "prettier": "^1.2.2"
   }
 }
