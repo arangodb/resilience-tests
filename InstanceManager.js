@@ -15,6 +15,15 @@ class InstanceManager {
       this.runner = new DockerRunner(process.env.RESILIENCE_DOCKER_IMAGE);
     }
 
+    if (process.env.ARANGO_STORAGE_ENGINE) {
+      this.storageEngine = process.env.ARANGO_STORAGE_ENGINE;
+      if (this.storageEngine !== "rocksdb") {
+        this.storageEngine = "mmfiles";
+      }
+    } else {
+      this.storageEngine = "mmfiles";
+    }
+
     if (!this.runner) {
       throw new Error(
         'Must specify RESILIENCE_ARANGO_BASEPATH (source root dir including a "build" folder containing compiled binaries or RESILIENCE_DOCKER_IMAGE to test a docker container'
@@ -28,6 +37,7 @@ class InstanceManager {
 
   startArango(name, endpoint, role, args) {
     args.push("--server.authentication=false");
+    args.push("--server.storage-engine=" + this.storageEngine);
 
     let instance = {
       name,
