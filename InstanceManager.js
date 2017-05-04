@@ -305,6 +305,24 @@ class InstanceManager {
       })
     )
       .then(() => {
+        let checkDown = () => {
+          let allDown = nonAgents.every(instance => {
+            return instance.status === "EXITED";
+          });
+
+          if (allDown) {
+            return Promise.resolve(true);
+          } else {
+            return new Promise((resolve, reject) => {
+              setTimeout(() => {
+                checkDown.bind(this)().then(resolve, reject);
+              }, 100);
+            });
+          }
+        };
+        return checkDown();
+      })
+      .then(() => {
         return Promise.all(
           this.agents().map(agent => {
             return agent.process.kill();
