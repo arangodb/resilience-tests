@@ -94,6 +94,10 @@ describe("Move shards", function() {
           let freeServer = servers.filter(
             server => is.indexOf(server.name) == -1
           )[0];
+
+          if (freeServer === undefined) {
+            throw new Error('Don\'t have a free server! Servers: ' + JSON.stringify(servers) + ', current: ' + JSON.stringify(is));
+          }
           let should = is.slice();
           should[0] = freeServer.name;
           let move = {
