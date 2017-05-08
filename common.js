@@ -1,6 +1,6 @@
 "use strict";
 const spawn = require("child_process").spawn;
-const portastic = require("portastic");
+const portfinder = require("portfinder");
 const ip = require("ip");
 
 function startInstance(instance) {
@@ -33,15 +33,7 @@ let minPort = startMinPort;
 let findFreePort = function(ip) {
   let startPort = minPort;
   minPort += 100;
-  return portastic
-    .find({ min: startPort, max: 65000, retrieve: 1 }, ip)
-    .then(ports => {
-      let port = ports[0];
-      if (minPort > 64000) {
-        minPort = startMinPort;
-      }
-      return port;
-    });
+  return portfinder.getPortPromise({ port: startPort, host: ip})
 };
 
 function portFromEndpoint(endpoint) {
