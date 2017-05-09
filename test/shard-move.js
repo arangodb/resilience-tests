@@ -36,8 +36,6 @@ describe("Move shards", function() {
     return instanceManager.cleanup();
   });
 
-  // it is unstable...reintroduce once supervision overhaul is done and working
-  // this testcase is fully valid
   it("should allow moving shards while writing", function() {
     let stopMoving = false;
 
@@ -46,40 +44,44 @@ describe("Move shards", function() {
         return Promise.resolve();
       }
 
-      let waitServersIs = function(should, num) {
-        if (num > 100) {
-          return Promise.reject(
+      let waitShardMoved = function(newLeader, numServers, num) {
+        if (num > 500) {
+          return Promise.reject(new Error(
             "Shard did not come into sync after " +
               num +
-              " tries. " +
-              JSON.stringify(should)
-          );
+              " tries. " + newLeader
+          ));
         }
         return rp({
           url: instanceManager.getEndpointUrl() +
             "/_db/_system/_admin/cluster/shardDistribution",
           json: true
         })
-          .then(shardDistribution => {
-            let shards = shardDistribution.results.testcollection.Current;
-            let shardKey = Object.keys(shards)[0];
-            return [shards[shardKey].leader].concat(shards[shardKey].followers);
-          })
-          .then(is => {
-            return (
-              is.length == should.length &&
-              is.every((server, index) => should[index] == server)
-            );
-          })
-          .then(equal => {
-            if (!equal) {
-              return new Promise((resolve, reject) => {
-                setTimeout(resolve, 100);
-              }).then(() => {
-                return waitServersIs(should, num + 1);
-              });
-            }
-          });
+        .then(shardDistribution => {
+          let shards = shardDistribution.results.testcollection.Current;
+          let shardKey = Object.keys(shards)[0];
+          // upon leader resign this might be undefined
+          let currentServers = [];
+          if (shards[shardKey].leader) {
+            currentServers.push(shards[shardKey].leader);
+          }
+          return currentServers.concat(shards[shardKey].followers);
+        })
+        .then(is => {
+          return (
+            is.length == numServers &&
+            is[0] === newLeader
+          );
+        })
+        .then(equal => {
+          if (!equal) {
+            return new Promise((resolve, reject) => {
+              setTimeout(resolve, 100);
+            }).then(() => {
+              return waitShardMoved(newLeader, numServers, num + 1);
+            });
+          }
+        });
       };
 
       return rp({
@@ -87,44 +89,44 @@ describe("Move shards", function() {
           "/_db/_system/_admin/cluster/shardDistribution",
         json: true
       })
-        .then(shardDistribution => {
-          let shards = shardDistribution.results.testcollection.Plan;
-          let shardKey = Object.keys(shards)[0];
-          let is = [shards[shardKey].leader].concat(shards[shardKey].followers);
-          let freeServer = servers.filter(
-            server => is.indexOf(server.name) == -1
-          )[0];
+      .then(shardDistribution => {
+        let shards = shardDistribution.results.testcollection.Plan;
+        let shardKey = Object.keys(shards)[0];
+        let is = [shards[shardKey].leader].concat(shards[shardKey].followers);
+        let freeServer = servers.filter(
+          server => is.indexOf(server.name) == -1
+        )[0];
 
-          if (freeServer === undefined) {
-            throw new Error('Don\'t have a free server! Servers: ' + JSON.stringify(servers) + ', current: ' + JSON.stringify(is));
-          }
-          let should = is.slice();
-          should[0] = freeServer.name;
-          let move = {
-            collection: "testcollection",
-            database: "_system",
-            shard: shardKey,
-            fromServer: servers.filter(
-              server => server.name == shards[shardKey].leader
-            )[0].id,
-            toServer: freeServer.id
-          };
-          return rp({
-            url: instanceManager.getEndpointUrl() +
-              "/_db/_system/_admin/cluster/moveShard",
-            json: true,
-            body: move,
-            method: "POST"
-          }).then(() => {
-            return should;
-          });
-        })
-        .then(should => {
-          return waitServersIs(should);
-        })
-        .then(() => {
-          return moveShards();
+        if (freeServer === undefined) {
+          throw new Error('Don\'t have a free server! Servers: ' + JSON.stringify(servers) + ', current: ' + JSON.stringify(is));
+        }
+        let should = is.slice();
+        should[0] = freeServer.name;
+        let move = {
+          collection: "testcollection",
+          database: "_system",
+          shard: shardKey,
+          fromServer: servers.filter(
+            server => server.name == shards[shardKey].leader
+          )[0].id,
+          toServer: freeServer.id
+        };
+        return rp({
+          url: instanceManager.getEndpointUrl() +
+            "/_db/_system/_admin/cluster/moveShard",
+          json: true,
+          body: move,
+          method: "POST"
+        }).then(() => {
+          return should;
         });
+      })
+      .then(should => {
+        return waitShardMoved(should[0], should.length, 1);
+      })
+      .then(() => {
+        return moveShards();
+      });
     };
 
     let insertDocuments = function() {
