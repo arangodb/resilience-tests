@@ -58,23 +58,37 @@ describe("Move shards", function() {
           json: true
         })
         .then(shardDistribution => {
-          let shards = shardDistribution.results.testcollection.Current;
-          let shardKey = Object.keys(shards)[0];
+          let currentShards = shardDistribution.results.testcollection.Current;
+          let shardKey = Object.keys(currentShards)[0];
           // upon leader resign this might be undefined
           let currentServers = [];
-          if (shards[shardKey].leader) {
-            currentServers.push(shards[shardKey].leader);
+          if (currentShards[shardKey].leader) {
+            currentServers.push(currentShards[shardKey].leader);
           }
-          return currentServers.concat(shards[shardKey].followers);
+
+          let plannedShards = shardDistribution.results.testcollection.Plan;
+          let plannedServers = [];
+          if (plannedShards[shardKey].leader) {
+            plannedServers.push(plannedShards[shardKey].leader);
+          }
+          return [
+            plannedServers.concat(plannedShards[shardKey].followers),
+            currentServers.concat(currentShards[shardKey].followers),
+          ];
         })
-        .then(is => {
+        .then(result => {
+          let planned = result[0];
+          let current = result[1];
+
           return (
-            is.length == numServers &&
-            is[0] === newLeader
+            current.length == numServers &&
+            current.length == planned.length &&
+            current[0] === newLeader &&
+            current.every((server, index) => planned[index] == server)
           );
         })
-        .then(equal => {
-          if (!equal) {
+        .then(finished => {
+          if (!finished) {
             return new Promise((resolve, reject) => {
               setTimeout(resolve, 100);
             }).then(() => {
