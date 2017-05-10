@@ -50,7 +50,7 @@ let waitForReintegration = function(endpoint) {
 
 let waitForLeaderChange = function(oldLeaderEndpoint, followerEndpoint) {
   let tries = 0;
-  let maxTries = 50;
+  let maxTries = 200;
   let waitInterval = 50;
 
   let waitForLeaderChangeInner = function() {
