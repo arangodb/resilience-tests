@@ -10,52 +10,6 @@ describe("Failover", function() {
   let instanceManager = new InstanceManager("failover");
   let db;
 
-  let waitForSyncRepl = function(maxTime) {
-    if (Date.now() >= maxTime) {
-      return Promise.reject(
-        new Error(
-          "Lousy replication didn't come into sync after 30s for 7 documents. That is lol"
-        )
-      );
-    }
-    return rp({
-      method: "POST",
-      url: instanceManager.getEndpointUrl(instanceManager.agents()[0]) +
-        "/_api/agency/read",
-      json: true,
-      body: [["/"]]
-    }).then(data => {
-      let plan = data[0].arango.Plan;
-      let current = data[0].arango.Current;
-      let plannedCollection = Object.keys(
-        plan.Collections["_system"]
-      ).reduce((result, cid) => {
-        if (result) {
-          return result;
-        }
-
-        if (plan.Collections["_system"][cid].name == "testcollection") {
-          return plan.Collections["_system"][cid];
-        }
-        return undefined;
-      }, undefined);
-
-      let done = Object.keys(plannedCollection.shards).every(shardName => {
-        return (
-          current.Collections["_system"][plannedCollection.id][shardName]
-            .servers.length == 2
-        );
-      });
-      if (!done) {
-        return new Promise((resolve, reject) => {
-          setTimeout(resolve, 100);
-        }).then(() => {
-          return waitForSyncRepl(maxTime);
-        });
-      }
-    });
-  };
-
   let getLeader = function() {
     return rp({
       method: "POST",
@@ -114,9 +68,6 @@ describe("Failover", function() {
             db.collection("testcollection").save({ testung: Date.now() }),
             db.collection("testcollection").save({ testung: Date.now() })
           ]);
-        })
-        .then(() => {
-          return waitForSyncRepl.bind(this, Date.now() + 30000)();
         });
     });
   });
