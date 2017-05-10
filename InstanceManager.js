@@ -159,8 +159,8 @@ class InstanceManager {
               "--agency.wait-for-sync=false",
               "--agency.supervision=true",
               "--server.threads=16",
-              "--agency.supervision-frequency=1.0",
-              "--agency.supervision-grace-period=5.0",
+              "--agency.supervision-frequency=0.5",
+              "--agency.supervision-grace-period=2.5",
               "--agency.my-address=" + endpoint,
               "--log.force-direct=true"
             ];
@@ -456,10 +456,9 @@ class InstanceManager {
       throw new Error("Couldn't find instance " + instance.name);
     }
 
-    setTimeout(
-      return this.runner.restart(instance).then(() => {
-        return this.waitForInstance(instance);
-      });, 1000);
+    return this.runner.restart(instance).then(() => {
+      return this.waitForInstance(instance);
+    });
     
   }
   
