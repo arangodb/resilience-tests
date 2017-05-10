@@ -45,7 +45,7 @@ describe("Move shards", function() {
       }
 
       let waitShardMoved = function(newLeader, numServers, num) {
-        if (num > 500) {
+        if (num > 2000) {
           return Promise.reject(new Error(
             "Shard did not come into sync after " +
               num +
