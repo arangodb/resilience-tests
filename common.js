@@ -28,7 +28,7 @@ function startInstance(instance) {
   });
 }
 
-let startMinPort = 3000;
+let startMinPort = 40000;
 let minPort = startMinPort;
 let findFreePort = function(ip) {
   let startPort = minPort;
