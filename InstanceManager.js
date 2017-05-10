@@ -456,11 +456,13 @@ class InstanceManager {
       throw new Error("Couldn't find instance " + instance.name);
     }
 
-    return this.runner.restart(instance).then(() => {
-      return this.waitForInstance(instance);
-    });
+    setTimeout(
+      return this.runner.restart(instance).then(() => {
+        return this.waitForInstance(instance);
+      });, 1000);
+    
   }
-
+  
   // this will append the logs to the test in case of a failure so
   // you get a nice combined log of what happened on the server and client
   moveServerLogs(test) {
