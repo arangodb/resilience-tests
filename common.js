@@ -29,6 +29,9 @@ function startInstance(instance) {
 }
 
 let startMinPort = 40000;
+if (process.env.PORT_OFFSET) {
+  startMinPort += parseInt(process.env.PORT_OFFSET, 10);
+}
 let minPort = startMinPort;
 let findFreePort = function(ip) {
   let startPort = minPort;
