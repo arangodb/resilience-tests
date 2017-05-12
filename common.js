@@ -28,14 +28,27 @@ function startInstance(instance) {
   });
 }
 
-let startMinPort = 40000;
+let startMinPort = 4000;
+if (process.env.MIN_PORT) {
+  startMinPort = parseInt(process.env.MIN_PORT, 10);
+}
+
+let portOffset = 50;
 if (process.env.PORT_OFFSET) {
-  startMinPort += parseInt(process.env.PORT_OFFSET, 10);
+  portOffset = parseInt(process.env.PORT_OFFSET, 10);
+}
+
+let maxPort = 65535;
+if (process.env.MAX_PORT) {
+  maxPort = parseInt(process.env.MAX_PORT, 10);
 }
 let minPort = startMinPort;
 let findFreePort = function(ip) {
   let startPort = minPort;
-  minPort += 100;
+  minPort += portOffset;
+  if (minPort >= maxPort) {
+    minPort = startMinPort;
+  }
   return portfinder.getPortPromise({ port: startPort, host: ip})
 };
 
