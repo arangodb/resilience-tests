@@ -60,4 +60,6 @@ Example:
 
 ```
 RESILIENCE_ARANGO_BASEPATH=../arangodb npm test -- --grep "Move shards"
+
+LOG_IMMEDIATE=1 PORT_OFFSET=1 RESILIENCE_ARANGO_BASEPATH=../arangodb ARANGO_STORAGE_ENGINE=rocksdb npm run test -- test/shard-move.js 
 ```
