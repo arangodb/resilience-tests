@@ -1,0 +1,29 @@
+{
+  "name": "service1",
+  "main": "index.js",
+  "configuration": {
+    "currency": {
+      "description": "Currency symbol to use for prices in the shop.",
+      "default": "$",
+      "type": "string"
+    },
+    "secretKey": {
+      "description": "Secret key to use for signing session tokens.",
+      "required": false,
+      "type": "password"
+    }
+  },
+  "dependencies": {
+    "mySessions": {
+      "name": "@foxx/sessions",
+      "version": "^2.0.0",
+      "required": false
+    },
+    "myAuth": {
+      "name": "@foxx/auth",
+      "version": "^1.0.0",
+      "description": "This description is entirely optional.",
+      "required": false
+    }
+  }
+}
