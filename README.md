@@ -48,18 +48,26 @@ ARANGO_STORAGE_ENGINE
 
     One of rocksdb or mmfiles (default: mmfiles)
 
+MIN_PORT
+
+    From where the tests should start searching for a free port. defaults to 4000
+
+MAX_PORT
+
+    MAX_PORT. defaults to 65535
+
 PORT_OFFSET
 
-    By default the resilience tests will take a port 40000, test it and then add 100 for the next instance. By specifying a PORT_OFFSET the start port is offsetted and this way you can prevent port clashes more easily if executed in parallel on a CI for example. (Example: PORT_OFFSET=2).
+    Port offset. For every request this will be added to the startPort to keep the ports somewhat predicatable. Default 50
+    The first request would reveal for example 4000. The second instance would then be assigned port 4050, then 4100 and so forth.
 
 ## Mocha options
 
 The tests itself are run through mocha so you can append mocha commands to the `npm run` script as you would expect:
 
-Example:
+Some Examples:
 
 ```
-RESILIENCE_ARANGO_BASEPATH=../arangodb npm test -- --grep "Move shards"
-
-LOG_IMMEDIATE=1 PORT_OFFSET=1 RESILIENCE_ARANGO_BASEPATH=../arangodb ARANGO_STORAGE_ENGINE=rocksdb npm run test -- test/shard-move.js 
+RESILIENCE_ARANGO_BASEPATH=../arangodb npm run test -- --grep "Move shards"
+RESILIENCE_ARANGO_BASEPATH=../arangodb ARANGO_STORAGE_ENGINE=rocksdb npm run test -- test/shard-move.js 
 ```
