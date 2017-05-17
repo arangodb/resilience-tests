@@ -1,9 +1,14 @@
-"use strict";
-const _ = require("lodash");
-const rp = require("request-promise");
-const LocalRunner = require("./LocalRunner.js");
-const DockerRunner = require("./DockerRunner.js");
-const endpointToUrl = require("./common.js").endpointToUrl;
+'use strict';
+const _ = require('lodash');
+const rp = require('request-promise');
+const LocalRunner = require('./LocalRunner.js');
+const DockerRunner = require('./DockerRunner.js');
+const endpointToUrl = require('./common.js').endpointToUrl;
+const WAIT_TIMEOUT = 300; // seconds
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(() => resolve(), ms));
+}
 
 class InstanceManager {
   constructor(name) {
@@ -17,11 +22,11 @@ class InstanceManager {
 
     if (process.env.ARANGO_STORAGE_ENGINE) {
       this.storageEngine = process.env.ARANGO_STORAGE_ENGINE;
-      if (this.storageEngine !== "rocksdb") {
-        this.storageEngine = "mmfiles";
+      if (this.storageEngine !== 'rocksdb') {
+        this.storageEngine = 'mmfiles';
       }
     } else {
-      this.storageEngine = "mmfiles";
+      this.storageEngine = 'mmfiles';
     }
 
     if (!this.runner) {
@@ -29,36 +34,36 @@ class InstanceManager {
         'Must specify RESILIENCE_ARANGO_BASEPATH (source root dir including a "build" folder containing compiled binaries or RESILIENCE_DOCKER_IMAGE to test a docker container'
       );
     }
-    this.currentLog = "";
+    this.currentLog = '';
     this.agentCounter = 0;
     this.coordinatorCounter = 0;
     this.dbServerCounter = 0;
   }
 
   startArango(name, endpoint, role, args) {
-    args.push("--server.authentication=false");
-    args.push("--server.storage-engine=" + this.storageEngine);
+    args.push('--server.authentication=false');
+    args.push('--server.storage-engine=' + this.storageEngine);
 
     let instance = {
       name,
       role,
       process: null,
-      status: "NEW",
+      status: 'NEW',
       exitcode: null,
       endpoint,
       args,
       logFn: line => {
         if (line.trim().length > 0) {
           let logLine =
-            instance.name + "(" + instance.process.pid + "): \t" + line;
+            instance.name + '(' + instance.process.pid + '): \t' + line;
           if (process.env.LOG_IMMEDIATE) {
             console.log(logLine);
           } else {
-            logLine = logLine.replace(/\x1B/g, "");
-            this.currentLog += logLine + "\n";
+            logLine = logLine.replace(/\x1B/g, '');
+            this.currentLog += logLine + '\n';
           }
         }
-      }
+      },
     };
     return this.runner.firstStart(instance);
   }
@@ -69,12 +74,12 @@ class InstanceManager {
       .createEndpoint()
       .then(endpoint => {
         let args = [
-          "--cluster.agency-endpoint=" + this.getAgencyEndpoint(),
-          "--cluster.my-role=PRIMARY",
-          "--cluster.my-local-info=" + name,
-          "--cluster.my-address=" + endpoint
+          '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
+          '--cluster.my-role=PRIMARY',
+          '--cluster.my-local-info=' + name,
+          '--cluster.my-address=' + endpoint,
         ];
-        return this.startArango(name, endpoint, "primary", args);
+        return this.startArango(name, endpoint, 'primary', args);
       })
       .then(instance => {
         this.instances.push(instance);
@@ -84,7 +89,7 @@ class InstanceManager {
 
   getAgencyEndpoint() {
     return this.instances.filter(instance => {
-      return instance.role === "agent";
+      return instance.role === 'agent';
     })[0].endpoint;
   }
 
@@ -94,12 +99,12 @@ class InstanceManager {
       .createEndpoint()
       .then(endpoint => {
         let args = [
-          "--cluster.agency-endpoint=" + this.getAgencyEndpoint(),
-          "--cluster.my-role=COORDINATOR",
-          "--cluster.my-local-info=" + name,
-          "--cluster.my-address=" + endpoint
+          '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
+          '--cluster.my-role=COORDINATOR',
+          '--cluster.my-local-info=' + name,
+          '--cluster.my-address=' + endpoint,
         ];
-        return this.startArango(name, endpoint, "coordinator", args);
+        return this.startArango(name, endpoint, 'coordinator', args);
       })
       .then(instance => {
         this.instances.push(instance);
@@ -110,27 +115,27 @@ class InstanceManager {
   replace(instance) {
     let name, role;
     switch (instance.role) {
-      case "coordinator":
+      case 'coordinator':
         this.coordinatorCounter++;
-        name = "coordinator-" + this.coordinatorCounter;
-        role = "COORDINATOR";
+        name = 'coordinator-' + this.coordinatorCounter;
+        role = 'COORDINATOR';
         break;
-      case "primary":
+      case 'primary':
         this.dbServerCounter++;
-        name = "dbServer-" + this.dbServerCounter;
-        role = "PRIMARY";
+        name = 'dbServer-' + this.dbServerCounter;
+        role = 'PRIMARY';
         break;
       default:
-        throw new Error("Can only replace coordinators/dbServers");
+        throw new Error('Can only replace coordinators/dbServers');
     }
     if (this.instances.includes(instance)) {
-      throw new Error("Instance must be destroyed before it can be replaced");
+      throw new Error('Instance must be destroyed before it can be replaced');
     }
     let args = [
-      "--cluster.agency-endpoint=" + this.getAgencyEndpoint(),
-      "--cluster.my-role=" + role,
-      "--cluster.my-local-info=" + name,
-      "--cluster.my-address=" + instance.endpoint
+      '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
+      '--cluster.my-role=' + role,
+      '--cluster.my-local-info=' + name,
+      '--cluster.my-address=' + instance.endpoint,
     ];
     return this.startArango(name, instance.endpoint, instance.role, args)
       .then(instance => this.waitForInstance(instance))
@@ -153,27 +158,27 @@ class InstanceManager {
           .createEndpoint()
           .then(endpoint => {
             let args = [
-              "--agency.activate=true",
-              "--agency.size=" + size,
-              "--agency.pool-size=" + size,
-              "--agency.wait-for-sync=false",
-              "--agency.supervision=true",
-              "--server.threads=16",
-              "--agency.supervision-frequency=0.5",
-              "--agency.supervision-grace-period=2.5",
-              "--agency.my-address=" + endpoint,
-              "--log.force-direct=true"
+              '--agency.activate=true',
+              '--agency.size=' + size,
+              '--agency.pool-size=' + size,
+              '--agency.wait-for-sync=false',
+              '--agency.supervision=true',
+              '--server.threads=16',
+              '--agency.supervision-frequency=0.5',
+              '--agency.supervision-grace-period=2.5',
+              '--agency.my-address=' + endpoint,
+              '--log.force-direct=true',
             ];
             if (instances.length === 0) {
-              args.push("--agency.endpoint=" + endpoint);
+              args.push('--agency.endpoint=' + endpoint);
             } else {
-              args.push("--agency.endpoint=" + instances[0].endpoint);
+              args.push('--agency.endpoint=' + instances[0].endpoint);
             }
             this.agentCounter++;
             return this.startArango(
-              "agency-" + this.agentCounter,
+              'agency-' + this.agentCounter,
               endpoint,
-              "agent",
+              'agent',
               args
             );
           })
@@ -191,15 +196,15 @@ class InstanceManager {
   findPrimaryDbServer(collectionName) {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
     return rp({
-      method: "POST",
-      uri: baseUrl + "/_api/agency/read",
+      method: 'POST',
+      uri: baseUrl + '/_api/agency/read',
       json: true,
       body: [
         [
-          "/arango/Plan/Collections/_system",
-          "/arango/Current/ServersRegistered"
-        ]
-      ]
+          '/arango/Plan/Collections/_system',
+          '/arango/Current/ServersRegistered',
+        ],
+      ],
     }).then(([info]) => {
       const collections = info.arango.Plan.Collections._system;
       const servers = info.arango.Current.ServersRegistered;
@@ -228,7 +233,7 @@ class InstanceManager {
 
   startCluster(numAgents, numCoordinators, numDbServers, options = {}) {
     let agencyOptions = options.agents || {};
-    _.extend(agencyOptions, { agencySize: numAgents });
+    _.extend(agencyOptions, {agencySize: numAgents});
 
     return this.startAgency(agencyOptions)
       .then(agents => {
@@ -237,10 +242,10 @@ class InstanceManager {
         let coordinators = Array.from(
           Array(numCoordinators).keys()
         ).map(index => {
-          return this.startCoordinator("coordinator-" + (index + 1));
+          return this.startCoordinator('coordinator-' + (index + 1));
         });
         let dbServers = Array.from(Array(numDbServers).keys()).map(index => {
-          return this.startDbServer("dbServer-" + (index + 1));
+          return this.startDbServer('dbServer-' + (index + 1));
         });
         return Promise.all([].concat(coordinators, dbServers));
       })
@@ -252,24 +257,41 @@ class InstanceManager {
       });
   }
 
-  waitForInstance(instance) {
-    if (instance.status !== "RUNNING") {
-      return Promise.reject(
-        new Error("Instance " + instance.name + " is down!")
+  async waitForInstance(instance, started = Date.now()) {
+    if (instance.status !== 'RUNNING') {
+      throw new Error(`Instance ${instance.name} is down!`);
+    }
+    if (Date.now() - started > WAIT_TIMEOUT * 1000) {
+      throw new Error(
+        `Instance ${instance.name} is still not ready after ${WAIT_TIMEOUT} secs`
       );
     }
-    return rp(endpointToUrl(instance.endpoint) + "/_api/version").then(
-      () => {
-        return instance;
-      },
-      () => {
-        return new Promise((resolve, reject) => {
-          setTimeout(resolve, 100);
-        }).then(() => {
-          return this.waitForInstance(instance);
+
+    if (instance.role === 'coordinator') {
+      try {
+        const body = await rp({
+          method: 'GET',
+          uri: endpointToUrl(instance.endpoint) + '/_api/foxx/_local/status',
         });
+        const result = JSON.parse(body);
+        if (!result.ready) {
+          return this.waitForInstance(instance, started);
+        }
+      } catch (e) {
+        return this.waitForInstance(instance, started);
       }
-    );
+    } else {
+      try {
+        await rp({
+          method: 'GET',
+          uri: endpointToUrl(instance.endpoint) + '/_api/version',
+        });
+      } catch (e) {
+        return this.waitForInstance(instance, started);
+      }
+    }
+    await sleep(100);
+    return instance;
   }
 
   waitForAllInstances() {
@@ -290,7 +312,7 @@ class InstanceManager {
 
   check() {
     return this.instances.every(instance => {
-      return instance.status === "RUNNING";
+      return instance.status === 'RUNNING';
     });
   }
 
@@ -307,7 +329,7 @@ class InstanceManager {
       .then(() => {
         let checkDown = () => {
           let allDown = nonAgents.every(instance => {
-            return instance.status === "EXITED";
+            return instance.status === 'EXITED';
           });
 
           if (allDown) {
@@ -332,7 +354,7 @@ class InstanceManager {
       .then(() => {
         let checkDown = () => {
           let allDown = this.instances.every(instance => {
-            return instance.status === "EXITED";
+            return instance.status === 'EXITED';
           });
 
           if (allDown) {
@@ -360,26 +382,26 @@ class InstanceManager {
       })
       .then(() => {
         let log = this.currentLog;
-        this.currentLog = "";
+        this.currentLog = '';
         return log;
       });
   }
 
   dbServers() {
     return this.instances.filter(instance => {
-      return instance.role === "primary";
+      return instance.role === 'primary';
     });
   }
 
   coordinators() {
     return this.instances.filter(instance => {
-      return instance.role === "coordinator";
+      return instance.role === 'coordinator';
     });
   }
 
   agents() {
     return this.instances.filter(instance => {
-      return instance.role === "agent";
+      return instance.role === 'agent';
     });
   }
 
@@ -401,32 +423,32 @@ class InstanceManager {
 
     return createNewEndpoint().then(endpoint => {
       [
-        "server.endpoint",
-        "agency.my-address",
-        "cluster.my-address"
+        'server.endpoint',
+        'agency.my-address',
+        'cluster.my-address',
       ].filter(arg => {
-        index = instance.args.indexOf("--" + arg + "=" + instance.endpoint);
+        index = instance.args.indexOf('--' + arg + '=' + instance.endpoint);
         if (index !== -1) {
-          instance.args[index] = "--" + arg + "=" + endpoint;
+          instance.args[index] = '--' + arg + '=' + endpoint;
         }
       });
       return this.runner.updateEndpoint(instance, endpoint);
     });
   }
 
-  kill(instance, signal = "SIGTERM") {
+  kill(instance, signal = 'SIGTERM') {
     if (!this.instances.includes(instance)) {
       throw new Error("Couldn't find instance " + instance.name);
     }
 
     instance.process.kill(signal);
-    instance.status = "KILLED";
+    instance.status = 'KILLED';
     return new Promise((resolve, reject) => {
       let check = function() {
-        if (instance.status !== "EXITED") {
+        if (instance.status !== 'EXITED') {
           setTimeout(check, 50);
         } else {
-          resolve();
+          sleep(10000).then(resolve);
         }
       };
       check();
@@ -445,7 +467,7 @@ class InstanceManager {
       if (i !== -1) {
         this.instances = [
           ...this.instances.slice(0, i),
-          ...this.instances.slice(i + 1)
+          ...this.instances.slice(i + 1),
         ];
       }
     });
@@ -459,16 +481,45 @@ class InstanceManager {
     return this.runner.restart(instance).then(() => {
       return this.waitForInstance(instance);
     });
-    
   }
-  
+
   // this will append the logs to the test in case of a failure so
   // you get a nice combined log of what happened on the server and client
   moveServerLogs(test) {
-    if (test.state === "failed") {
-      test.err.message = this.currentLog + "\n\n" + test.err.message;
+    if (test.state === 'failed') {
+      test.err.message = this.currentLog + '\n\n' + test.err.message;
     }
-    this.currentLog = "";
+    this.currentLog = '';
+  }
+
+  async getFoxxmaster() {
+    const baseUrl = endpointToUrl(this.getAgencyEndpoint());
+    const [info] = await rp({
+      method: 'POST',
+      uri: baseUrl + '/_api/agency/read',
+      json: true,
+      body: [
+        ['/arango/Current/Foxxmaster', '/arango/Current/ServersRegistered'],
+      ],
+    });
+    const uuid = info.arango.Current.Foxxmaster;
+    const endpoint = info.arango.Current.ServersRegistered[uuid].endpoint;
+    return this.instances.find(instance => instance.endpoint === endpoint);
+  }
+
+  async restartCluster() {
+    const fm = await this.getFoxxmaster();
+    await this.shutdownCluster();
+    await Promise.all(this.agents().map(agent => this.restart(agent)));
+    await Promise.all(this.dbServers().map(dbs => this.restart(dbs)));
+    this.restart(fm);
+    await sleep(100);
+    await Promise.all(
+      this.coordinators()
+        .filter(coord => coord !== fm)
+        .map(coord => this.restart(coord))
+    );
+    await this.waitForAllInstances();
   }
 }
 
