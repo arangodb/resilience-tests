@@ -42,6 +42,8 @@ class InstanceManager {
 
   startArango(name, endpoint, role, args) {
     args.push('--server.authentication=false');
+    //args.push('--log.level=v8=debug')
+    //args.push('--log.level=communication=debug');
     args.push('--server.storage-engine=' + this.storageEngine);
 
     let instance = {
@@ -267,31 +269,32 @@ class InstanceManager {
       );
     }
 
-    if (instance.role === 'coordinator') {
-      try {
+    let ok = false;
+    try {
+      if (instance.role === 'coordinator') {
         const body = await rp({
           method: 'GET',
+          followRedirect: true,
           uri: endpointToUrl(instance.endpoint) + '/_api/foxx/_local/status',
         });
+
         const result = JSON.parse(body);
-        if (!result.ready) {
-          return this.waitForInstance(instance, started);
-        }
-      } catch (e) {
-        return this.waitForInstance(instance, started);
-      }
-    } else {
-      try {
+        ok = result.ready;
+      } else {
         await rp({
           method: 'GET',
           uri: endpointToUrl(instance.endpoint) + '/_api/version',
         });
-      } catch (e) {
-        return this.waitForInstance(instance, started);
+        ok = true;
       }
+    } catch (e) {
     }
-    await sleep(100);
-    return instance;
+    if (ok) {
+      return instance;
+    } else {
+      await sleep(100);
+      return this.waitForInstance(instance, started);
+    }
   }
 
   waitForAllInstances() {
