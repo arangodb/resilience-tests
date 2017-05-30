@@ -779,7 +779,7 @@ function isRunning(instance) {
 }
 
 async function getRandomCoordinator(im) {
-  return im.coordinators()[0];
+  return im.coordinators().filter(c => isRunning(c))[0];
 }
 
 async function getRandomEndpointUrl(im) {
