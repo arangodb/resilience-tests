@@ -33,9 +33,10 @@ const MOUNT_2 = '/resiliencetestservice2';
 const MOUNT_3 = '/resiliencetestservice3';
 
 describe('Foxx service', function() {
-  describe('while cluster running', function() {
-    suiteRunningClusterDifferentServiceSetups(getRandomEndpointUrl);
-  });
+  describe(
+    'while cluster running',
+    suiteRunningClusterDifferentServiceSetups(getRandomEndpointUrl)
+  );
 
   describe(
     'after new coordinator added',
