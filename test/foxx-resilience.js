@@ -22,11 +22,11 @@ const SERVICE_1_RESULT = 'service1';
 const SERVICE_2_RESULT = 'service2';
 const SERVICE_CONFIG = {
   currency: 'test1',
-  secretKey: 'test2',
+  secretKey: 'test2'
 };
 const SERVICE_DEPENDENCIES = {
   mySessions: 'test1',
-  myAuth: 'test2',
+  myAuth: 'test2'
 };
 const MOUNT_1 = '/resiliencetestservice1';
 const MOUNT_2 = '/resiliencetestservice2';
@@ -75,24 +75,24 @@ function suiteRunningClusterDifferentServiceSetups(getEndpointUrl) {
             mount: MOUNT_1,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
-          },
+            result: SERVICE_1_RESULT
+          }
         ],
         servicesToUpgrade: [
           {
             mount: MOUNT_1,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
-          },
+            result: SERVICE_2_RESULT
+          }
         ],
         servicesToUninstall: [
           {
             mount: MOUNT_1,
             service: service1,
             checksum: null,
-            result: null,
-          },
+            result: null
+          }
         ],
         serviceConfigToUpdate: [
           {
@@ -100,8 +100,8 @@ function suiteRunningClusterDifferentServiceSetups(getEndpointUrl) {
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
             result: SERVICE_1_RESULT,
-            config: SERVICE_CONFIG,
-          },
+            config: SERVICE_CONFIG
+          }
         ],
         serviceDependenciesToUpdate: [
           {
@@ -109,9 +109,9 @@ function suiteRunningClusterDifferentServiceSetups(getEndpointUrl) {
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
             result: SERVICE_1_RESULT,
-            dependencies: SERVICE_DEPENDENCIES,
-          },
-        ],
+            dependencies: SERVICE_DEPENDENCIES
+          }
+        ]
       })
     );
     describe(
@@ -122,42 +122,42 @@ function suiteRunningClusterDifferentServiceSetups(getEndpointUrl) {
             mount: MOUNT_1,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
+            result: SERVICE_1_RESULT
           },
           {
             mount: MOUNT_2,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
-          },
+            result: SERVICE_2_RESULT
+          }
         ],
         servicesToUpgrade: [
           {
             mount: MOUNT_1,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
+            result: SERVICE_2_RESULT
           },
           {
             mount: MOUNT_2,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
-          },
+            result: SERVICE_1_RESULT
+          }
         ],
         servicesToUninstall: [
           {
             mount: MOUNT_1,
             service: service1,
             checksum: null,
-            result: null,
+            result: null
           },
           {
             mount: MOUNT_2,
             service: service2,
             checksum: null,
-            result: null,
-          },
+            result: null
+          }
         ],
         serviceConfigToUpdate: [
           {
@@ -165,15 +165,15 @@ function suiteRunningClusterDifferentServiceSetups(getEndpointUrl) {
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
             result: SERVICE_1_RESULT,
-            config: SERVICE_CONFIG,
+            config: SERVICE_CONFIG
           },
           {
             mount: MOUNT_2,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
             result: SERVICE_2_RESULT,
-            config: SERVICE_CONFIG,
-          },
+            config: SERVICE_CONFIG
+          }
         ],
         serviceDependenciesToUpdate: [
           {
@@ -181,16 +181,16 @@ function suiteRunningClusterDifferentServiceSetups(getEndpointUrl) {
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
             result: SERVICE_1_RESULT,
-            dependencies: SERVICE_DEPENDENCIES,
+            dependencies: SERVICE_DEPENDENCIES
           },
           {
             mount: MOUNT_2,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
             result: SERVICE_2_RESULT,
-            dependencies: SERVICE_DEPENDENCIES,
-          },
-        ],
+            dependencies: SERVICE_DEPENDENCIES
+          }
+        ]
       })
     );
   };
@@ -211,62 +211,62 @@ function suiteRunningCluster(getEndpointUrl, params) {
     it('should be installed on every coordinator', async function() {
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
     });
 
     it('should be replaced on every coordinator', async function() {
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       await replaceAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToUpgrade,
+        serviceInfos: params.servicesToUpgrade
       });
     });
 
     it('should be upgraded on every coordinator', async function() {
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       await upgradeAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToUpgrade,
+        serviceInfos: params.servicesToUpgrade
       });
     });
 
     it('should be uninstalled on every coordinator', async function() {
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       await uninstallAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToUninstall,
+        serviceInfos: params.servicesToUninstall
       });
     });
 
     it('should be reconfigured on every coordinator', async function() {
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       await updateAndCheckServiceConfigurations(im, {
         endpointUrl,
-        serviceInfos: params.serviceConfigToUpdate,
+        serviceInfos: params.serviceConfigToUpdate
       });
     });
 
     it('should its dependencies be reconfigured on every coordinator', async function() {
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       await updateAndCheckServiceDependencies(im, {
         endpointUrl,
-        serviceInfos: params.serviceDependenciesToUpdate,
+        serviceInfos: params.serviceDependenciesToUpdate
       });
     });
   };
@@ -282,9 +282,9 @@ function suiteNewCoordinatorDifferentServiceSetups() {
             mount: MOUNT_1,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
-          },
-        ],
+            result: SERVICE_1_RESULT
+          }
+        ]
       })
     );
     describe(
@@ -295,15 +295,15 @@ function suiteNewCoordinatorDifferentServiceSetups() {
             mount: MOUNT_1,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
+            result: SERVICE_1_RESULT
           },
           {
             mount: MOUNT_2,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
-          },
-        ],
+            result: SERVICE_2_RESULT
+          }
+        ]
       })
     );
   };
@@ -322,7 +322,7 @@ function suiteNewCoordinator(params) {
     it('should be installed on every coordinator', async function() {
       await installAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       const numbCoord = im.coordinators().length;
       await im.waitForInstance(await im.startCoordinator('coordinator-new'));
@@ -333,7 +333,7 @@ function suiteNewCoordinator(params) {
     it('should be picked from Foxxmaster when all services are wrong', async function() {
       await installAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       const db = arangojs(await getFoxxmasterEndpointUrl(im));
       const collection = db.collection('_apps');
@@ -384,24 +384,24 @@ function suiteRebootCoordinatorDifferentServiceSetup(getCoordinatorInstance) {
             mount: MOUNT_1,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
-          },
+            result: SERVICE_1_RESULT
+          }
         ],
         servicesToUpgrade: [
           {
             mount: MOUNT_1,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
-          },
+            result: SERVICE_2_RESULT
+          }
         ],
         servicesToUninstall: [
           {
             mount: MOUNT_1,
             checksum: null,
-            result: null,
-          },
-        ],
+            result: null
+          }
+        ]
       })
     );
     describe(
@@ -412,41 +412,41 @@ function suiteRebootCoordinatorDifferentServiceSetup(getCoordinatorInstance) {
             mount: MOUNT_1,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
+            result: SERVICE_1_RESULT
           },
           {
             mount: MOUNT_2,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
-          },
+            result: SERVICE_2_RESULT
+          }
         ],
         servicesToUpgrade: [
           {
             mount: MOUNT_1,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
+            result: SERVICE_2_RESULT
           },
           {
             mount: MOUNT_2,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
-          },
+            result: SERVICE_1_RESULT
+          }
         ],
         servicesToUninstall: [
           {
             mount: MOUNT_1,
             checksum: null,
-            result: null,
+            result: null
           },
           {
             mount: MOUNT_2,
             checksum: null,
-            result: null,
-          },
-        ],
+            result: null
+          }
+        ]
       })
     );
   };
@@ -469,7 +469,7 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
       expect(isRunning(coordinatorInstance)).to.be.false;
       await installAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       await im.restart(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.true;
@@ -479,13 +479,13 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
     it('should be corrected if not equal than in cluster', async function() {
       await installAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       await im.kill(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.false;
       await replaceAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToUpgrade,
+        serviceInfos: params.servicesToUpgrade
       });
       await im.restart(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.true;
@@ -495,13 +495,13 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
     it('should be ignored if not installed in cluster', async function() {
       await installAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       await im.kill(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.false;
       await uninstallAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToUninstall,
+        serviceInfos: params.servicesToUninstall
       });
       await im.restart(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.true;
@@ -520,17 +520,17 @@ function suiteReplaceCoordinatorDifferentServiceSetup(getCoordinatorInstance) {
             mount: MOUNT_1,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
-          },
+            result: SERVICE_1_RESULT
+          }
         ],
         servicesToHeal: [
           {
             mount: MOUNT_1,
             service: service2,
             checksum: null,
-            result: null,
-          },
-        ],
+            result: null
+          }
+        ]
       })
     );
     describe(
@@ -541,29 +541,29 @@ function suiteReplaceCoordinatorDifferentServiceSetup(getCoordinatorInstance) {
             mount: MOUNT_1,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
+            result: SERVICE_1_RESULT
           },
           {
             mount: MOUNT_2,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
-          },
+            result: SERVICE_2_RESULT
+          }
         ],
         servicesToHeal: [
           {
             mount: MOUNT_1,
             service: service2,
             checksum: null,
-            result: null,
+            result: null
           },
           {
             mount: MOUNT_2,
             service: service1,
             checksum: null,
-            result: null,
-          },
-        ],
+            result: null
+          }
+        ]
       })
     );
   };
@@ -587,7 +587,7 @@ function suiteReplaceCoordinator(getCoordinatorInstance, params) {
       expect(im.coordinators().length).to.be.below(numbCoord);
       await installAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       await im.replace(coordinatorInstance);
       expect(im.coordinators().length).to.be.equal(numbCoord);
@@ -607,7 +607,7 @@ function suiteReplaceCoordinator(getCoordinatorInstance, params) {
       expect(im.coordinators().length).to.be.below(numbCoord);
       await installAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       await im.replace(coordinatorInstance);
       expect(im.coordinators().length).to.be.equal(numbCoord);
@@ -642,17 +642,17 @@ function suiteClusterStartDifferentServiceSetups() {
             mount: MOUNT_1,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
-          },
+            result: SERVICE_1_RESULT
+          }
         ],
         servicesToManipulate: [
           {
             mount: MOUNT_1,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
-          },
-        ],
+            result: SERVICE_2_RESULT
+          }
+        ]
       })
     );
 
@@ -664,29 +664,29 @@ function suiteClusterStartDifferentServiceSetups() {
             mount: MOUNT_1,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
+            result: SERVICE_1_RESULT
           },
           {
             mount: MOUNT_2,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
-          },
+            result: SERVICE_2_RESULT
+          }
         ],
         servicesToManipulate: [
           {
             mount: MOUNT_1,
             service: service2,
             checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT,
+            result: SERVICE_2_RESULT
           },
           {
             mount: MOUNT_2,
             service: service1,
             checksum: SERVICE_1_CHECKSUM,
-            result: SERVICE_1_RESULT,
-          },
-        ],
+            result: SERVICE_1_RESULT
+          }
+        ]
       })
     );
   };
@@ -705,7 +705,7 @@ function suiteClusterStart(params) {
       const endpointUrl = await getRandomNonFoxxmasterEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       for (const service of params.servicesToInstall) {
         await deleteLocalServiceFiles(endpointUrl, service.mount);
@@ -717,7 +717,7 @@ function suiteClusterStart(params) {
     it('when missing on all coordinators (including Foxxmaster) should not be available', async function() {
       await installAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       for (const service of params.servicesToInstall) {
         for (const endpointUrl of getAllCoordEndpointUrls(im)) {
@@ -737,7 +737,7 @@ function suiteClusterStart(params) {
       const endpointUrl = await getFoxxmasterEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       for (const service of params.servicesToInstall) {
         await deleteLocalServiceFiles(endpointUrl, service.mount);
@@ -750,7 +750,7 @@ function suiteClusterStart(params) {
       const endpointUrl = await getFoxxmasterEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       const db = await arangojs(endpointUrl);
       const collection = db.collection('_apps');
@@ -774,7 +774,7 @@ function suiteClusterStart(params) {
       const endpointUrl = await getFoxxmasterEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       for (const service of params.servicesToManipulate) {
         await deleteLocalServiceFiles(endpointUrl, service.mount);
@@ -792,7 +792,7 @@ function suiteClusterStart(params) {
       const endpointUrl = await getRandomNonFoxxmasterEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       for (const service of params.servicesToManipulate) {
         await deleteLocalServiceFiles(endpointUrl, service.mount);
@@ -809,7 +809,7 @@ function suiteClusterStart(params) {
     it('with different service on all coordinators (including Foxxmaster) should be replaced on every coordinator', async function() {
       await installAndCheckServices(im, {
         endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       for (const endpointUrl of getAllCoordEndpointUrls(im)) {
         for (const service of params.servicesToManipulate) {
@@ -829,7 +829,7 @@ function suiteClusterStart(params) {
       const foxxmasterEndpointUrl = await getFoxxmasterEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl: foxxmasterEndpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       for (const endpointUrl of getAllCoordEndpointUrls(im)) {
         for (const service of params.servicesToManipulate) {
@@ -851,7 +851,7 @@ function suiteClusterStart(params) {
       const endpointUrl = await getFoxxmasterEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       const db = arangojs(endpointUrl);
       const collection = db.collection('_apps');
@@ -873,7 +873,7 @@ function suiteClusterStart(params) {
       const endpointUrl = await getFoxxmasterEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
-        serviceInfos: params.servicesToInstall,
+        serviceInfos: params.servicesToInstall
       });
       const db = arangojs(endpointUrl);
       const collection = db.collection('_apps');
@@ -1100,8 +1100,8 @@ async function checkBundleExists(endpointUrl, mount, expectedResult) {
 
 async function checkBundleChecksum(endpointUrl, mount, expectedChecksum) {
   const response = await arangojs(endpointUrl)
-    .route('/_api/foxx/_local/checksums')
-    .get({mount});
+    .route(UTIL_MOUNT)
+    .get('/checksums', {mount});
   expect(response).to.have.property('body');
   if (expectedChecksum === null) {
     expect(response.body).to.eql({});
@@ -1171,6 +1171,6 @@ async function prepopulateServiceFiles(endpointUrl, mount, service) {
   await arangojs(endpointUrl).route(UTIL_MOUNT).request({
     method: 'POST',
     rawBody: service,
-    qs: {mount},
+    qs: {mount}
   });
 }
