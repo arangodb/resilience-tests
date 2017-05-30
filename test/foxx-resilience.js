@@ -43,7 +43,7 @@ describe('Foxx service', function() {
     suiteNewCoordinatorDifferentServiceSetups()
   );
 
-  describe.only(
+  describe(
     'after coordinator rebooted',
     suiteRebootCoordinatorDifferentServiceSetup(getRandomCoordinator)
   );
