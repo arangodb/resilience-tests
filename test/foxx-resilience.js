@@ -33,19 +33,10 @@ const MOUNT_2 = '/resiliencetestservice2';
 const MOUNT_3 = '/resiliencetestservice3';
 
 describe('Foxx service', function() {
-  describe('while cluster running', function() {
-    describe(
-      'triggered by Foxxmaster',
-      suiteRunningClusterDifferentServiceSetups(getFoxxmasterEndpointUrl)
-    );
-
-    describe(
-      'triggered by non-Foxxmaster',
-      suiteRunningClusterDifferentServiceSetups(
-        getRandomNonFoxxmasterEndpointUrl
-      )
-    );
-  });
+  describe(
+    'while cluster running',
+    suiteRunningClusterDifferentServiceSetups(getRandomEndpointUrl)
+  );
 
   describe(
     'after new coordinator added',
@@ -54,12 +45,12 @@ describe('Foxx service', function() {
 
   describe(
     'after coordinator rebooted',
-    suiteRebootCoordinatorDifferentServiceSetup(getRandomNonFoxxmaster)
+    suiteRebootCoordinatorDifferentServiceSetup(getRandomCoordinator)
   );
 
   describe(
     'after coordinator replaced',
-    suiteReplaceCoordinatorDifferentServiceSetup(getRandomNonFoxxmaster)
+    suiteReplaceCoordinatorDifferentServiceSetup(getRandomCoordinator)
   );
 
   describe('after cluster start', suiteClusterStartDifferentServiceSetups());
@@ -321,32 +312,9 @@ function suiteNewCoordinator(params) {
 
     it('should be installed on every coordinator', async function() {
       await installAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
+        endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall,
       });
-      const numbCoord = im.coordinators().length;
-      await im.waitForInstance(await im.startCoordinator('coordinator-new'));
-      expect(im.coordinators().length).to.be.above(numbCoord);
-      await checkAllServices(im, params.servicesToInstall);
-    });
-
-    it('should be picked from Foxxmaster when all services are wrong', async function() {
-      await installAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
-      });
-      const db = arangojs(await getFoxxmasterEndpointUrl(im));
-      const collection = db.collection('_apps');
-      await db.query(
-        aql`
-          FOR info IN ${params.servicesToInstall}
-            FOR service in ${collection}
-              FILTER service.mount == info.mount
-              UPDATE service
-              WITH {checksum: '69'}
-              IN ${collection}
-        `
-      );
       const numbCoord = im.coordinators().length;
       await im.waitForInstance(await im.startCoordinator('coordinator-new'));
       expect(im.coordinators().length).to.be.above(numbCoord);
@@ -354,7 +322,7 @@ function suiteNewCoordinator(params) {
     });
 
     it('should be removed and unavailable on every coords', async function() {
-      const db = arangojs(await getFoxxmasterEndpointUrl(im));
+      const db = arangojs(await getRandomEndpointUrl(im));
       const collection = db.collection('_apps');
       for (const info of params.servicesToInstall) {
         await db.query(
@@ -468,7 +436,7 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
       await im.kill(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.false;
       await installAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
+        endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall,
       });
       await im.restart(coordinatorInstance);
@@ -478,13 +446,13 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
 
     it('should be corrected if not equal than in cluster', async function() {
       await installAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
+        endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall,
       });
       await im.kill(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.false;
       await replaceAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
+        endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToUpgrade,
       });
       await im.restart(coordinatorInstance);
@@ -494,13 +462,13 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
 
     it('should be ignored if not installed in cluster', async function() {
       await installAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
+        endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall,
       });
       await im.kill(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.false;
       await uninstallAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
+        endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToUninstall,
       });
       await im.restart(coordinatorInstance);
@@ -586,7 +554,7 @@ function suiteReplaceCoordinator(getCoordinatorInstance, params) {
       await im.destroy(coordinatorInstance);
       expect(im.coordinators().length).to.be.below(numbCoord);
       await installAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
+        endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall,
       });
       await im.replace(coordinatorInstance);
@@ -606,7 +574,7 @@ function suiteReplaceCoordinator(getCoordinatorInstance, params) {
       await im.destroy(coordinatorInstance);
       expect(im.coordinators().length).to.be.below(numbCoord);
       await installAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
+        endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall,
       });
       await im.replace(coordinatorInstance);
@@ -701,8 +669,8 @@ function suiteClusterStart(params) {
       await installUtilService(im);
     });
     afterEach(() => im.cleanup().catch(noop));
-    it('when missing on any one coordinator (exclude Foxxmaster) should be available on every coordinator', async function() {
-      const endpointUrl = await getRandomNonFoxxmasterEndpointUrl(im);
+    it('when missing on any one coordinator should be available on every coordinator', async function() {
+      const endpointUrl = await getRandomEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall,
@@ -714,9 +682,9 @@ function suiteClusterStart(params) {
       await checkAllServices(im, params.servicesToInstall);
     });
 
-    it('when missing on all coordinators (including Foxxmaster) should not be available', async function() {
+    it('when missing on all coordinators should not be available', async function() {
       await installAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
+        endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall,
       });
       for (const service of params.servicesToInstall) {
@@ -733,21 +701,8 @@ function suiteClusterStart(params) {
       await checkAllServices(im, servicesToCheck);
     });
 
-    it('when missing on Foxxmaster should be available on every coordinator', async function() {
-      const endpointUrl = await getFoxxmasterEndpointUrl(im);
-      await installAndCheckServices(im, {
-        endpointUrl,
-        serviceInfos: params.servicesToInstall,
-      });
-      for (const service of params.servicesToInstall) {
-        await deleteLocalServiceFiles(endpointUrl, service.mount);
-      }
-      await im.restartCluster();
-      await checkAllServices(im, params.servicesToInstall);
-    });
-
     it('when missing in storage should be available on every coordinator', async function() {
-      const endpointUrl = await getFoxxmasterEndpointUrl(im);
+      const endpointUrl = await getRandomEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall,
@@ -770,8 +725,8 @@ function suiteClusterStart(params) {
       await checkAllServices(im, servicesToCheck);
     });
 
-    it('with wrong service on Foxxmaster should be available on every coordinator', async function() {
-      const endpointUrl = await getFoxxmasterEndpointUrl(im);
+    it('with wrong service on any one coordinator should be available on every coordinator', async function() {
+      const endpointUrl = await getRandomEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall,
@@ -786,69 +741,10 @@ function suiteClusterStart(params) {
       }
       await im.restartCluster();
       await checkAllServices(im, params.servicesToInstall);
-    });
-
-    it('with wrong service on any one coordinator (exclude Foxxmaster) should be available on every coordinator', async function() {
-      const endpointUrl = await getRandomNonFoxxmasterEndpointUrl(im);
-      await installAndCheckServices(im, {
-        endpointUrl,
-        serviceInfos: params.servicesToInstall,
-      });
-      for (const service of params.servicesToManipulate) {
-        await deleteLocalServiceFiles(endpointUrl, service.mount);
-        await prepopulateServiceFiles(
-          endpointUrl,
-          service.mount,
-          service.service
-        );
-      }
-      await im.restartCluster();
-      await checkAllServices(im, params.servicesToInstall);
-    });
-
-    it('with different service on all coordinators (including Foxxmaster) should be replaced on every coordinator', async function() {
-      await installAndCheckServices(im, {
-        endpointUrl: await getFoxxmasterEndpointUrl(im),
-        serviceInfos: params.servicesToInstall,
-      });
-      for (const endpointUrl of getAllCoordEndpointUrls(im)) {
-        for (const service of params.servicesToManipulate) {
-          await deleteLocalServiceFiles(endpointUrl, service.mount);
-          await prepopulateServiceFiles(
-            endpointUrl,
-            service.mount,
-            service.service
-          );
-        }
-      }
-      await im.restartCluster();
-      await checkAllServices(im, params.servicesToManipulate);
-    });
-
-    it('with different service on all coordinators and missing service on Foxxmaster should be replaced on every coordinator', async function() {
-      const foxxmasterEndpointUrl = await getFoxxmasterEndpointUrl(im);
-      await installAndCheckServices(im, {
-        endpointUrl: foxxmasterEndpointUrl,
-        serviceInfos: params.servicesToInstall,
-      });
-      for (const endpointUrl of getAllCoordEndpointUrls(im)) {
-        for (const service of params.servicesToManipulate) {
-          await deleteLocalServiceFiles(endpointUrl, service.mount);
-          if (endpointUrl !== foxxmasterEndpointUrl) {
-            await prepopulateServiceFiles(
-              endpointUrl,
-              service.mount,
-              service.service
-            );
-          }
-        }
-      }
-      await im.restartCluster();
-      await checkAllServices(im, params.servicesToManipulate);
     });
 
     it('with missing checksum in storage should be available on every coordinator', async function() {
-      const endpointUrl = await getFoxxmasterEndpointUrl(im);
+      const endpointUrl = await getRandomEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall,
@@ -865,31 +761,6 @@ function suiteClusterStart(params) {
               IN ${collection} OPTIONS { keepNull: false }
         `
       );
-      await im.restartCluster();
-      await checkAllServices(im, params.servicesToInstall);
-    });
-
-    it('with missing checksum in storage and missing service on Foxxmaster should be available on every coordinator', async function() {
-      const endpointUrl = await getFoxxmasterEndpointUrl(im);
-      await installAndCheckServices(im, {
-        endpointUrl,
-        serviceInfos: params.servicesToInstall,
-      });
-      const db = arangojs(endpointUrl);
-      const collection = db.collection('_apps');
-      await db.query(
-        aql`
-          FOR info IN ${params.servicesToInstall}
-            FOR service in ${collection}
-              FILTER service.mount == info.mount
-              UPDATE service
-              WITH {checksum: null}
-              IN ${collection} OPTIONS { keepNull: false }
-        `
-      );
-      for (const service of params.servicesToManipulate) {
-        await deleteLocalServiceFiles(endpointUrl, service.mount);
-      }
       await im.restartCluster();
       await checkAllServices(im, params.servicesToInstall);
     });
@@ -907,19 +778,12 @@ function isRunning(instance) {
   return instance.status === 'RUNNING';
 }
 
-async function getFoxxmasterEndpointUrl(im) {
-  return im.getEndpointUrl(await im.getFoxxmaster());
+async function getRandomCoordinator(im) {
+  return im.coordinators().find(c => isRunning(c));
 }
 
-async function getRandomNonFoxxmaster(im) {
-  const foxxmaster = await im.getFoxxmaster();
-  const coords = im.coordinators().filter(instance => instance !== foxxmaster);
-  return coords[0];
-}
-
-async function getRandomNonFoxxmasterEndpointUrl(im) {
-  const coord = await getRandomNonFoxxmaster(im);
-  return im.getEndpointUrl(coord);
+async function getRandomEndpointUrl(im) {
+  return im.getEndpointUrl(await getRandomCoordinator(im));
 }
 
 async function installAndCheckServices(im, services) {
@@ -1100,8 +964,8 @@ async function checkBundleExists(endpointUrl, mount, expectedResult) {
 
 async function checkBundleChecksum(endpointUrl, mount, expectedChecksum) {
   const response = await arangojs(endpointUrl)
-    .route('/_api/foxx/_local/checksums')
-    .get({mount});
+    .route(UTIL_MOUNT)
+    .get('/checksums', {mount});
   expect(response).to.have.property('body');
   if (expectedChecksum === null) {
     expect(response.body).to.eql({});
@@ -1153,7 +1017,7 @@ function checkConfig(response, expectedConfig) {
 
 async function installUtilService(im) {
   await crudServices(
-    await getFoxxmasterEndpointUrl(im),
+    await getRandomEndpointUrl(im),
     [[UTIL_MOUNT, utilService]],
     async function(db, mount, service) {
       await db.installService(mount, service);

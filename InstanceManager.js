@@ -65,7 +65,7 @@ class InstanceManager {
             this.currentLog += logLine + '\n';
           }
         }
-      },
+      }
     };
     return this.runner.firstStart(instance);
   }
@@ -79,7 +79,7 @@ class InstanceManager {
           '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
           '--cluster.my-role=PRIMARY',
           '--cluster.my-local-info=' + name,
-          '--cluster.my-address=' + endpoint,
+          '--cluster.my-address=' + endpoint
         ];
         return this.startArango(name, endpoint, 'primary', args);
       })
@@ -104,7 +104,7 @@ class InstanceManager {
           '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
           '--cluster.my-role=COORDINATOR',
           '--cluster.my-local-info=' + name,
-          '--cluster.my-address=' + endpoint,
+          '--cluster.my-address=' + endpoint
         ];
         return this.startArango(name, endpoint, 'coordinator', args);
       })
@@ -137,7 +137,7 @@ class InstanceManager {
       '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
       '--cluster.my-role=' + role,
       '--cluster.my-local-info=' + name,
-      '--cluster.my-address=' + instance.endpoint,
+      '--cluster.my-address=' + instance.endpoint
     ];
     return this.startArango(name, instance.endpoint, instance.role, args)
       .then(instance => this.waitForInstance(instance))
@@ -173,7 +173,7 @@ class InstanceManager {
               '--agency.my-address=' + endpoint,
               '--agency.election-timeout-min=0.15',
               '--agency.election-timeout-max=0.75',
-              '--log.force-direct=true',
+              '--log.force-direct=true'
             ];
             if (instances.length === 0) {
               args.push('--agency.endpoint=' + endpoint);
@@ -208,9 +208,9 @@ class InstanceManager {
       body: [
         [
           '/arango/Plan/Collections/_system',
-          '/arango/Current/ServersRegistered',
-        ],
-      ],
+          '/arango/Current/ServersRegistered'
+        ]
+      ]
     }).then(([info]) => {
       const collections = info.arango.Plan.Collections._system;
       const servers = info.arango.Current.ServersRegistered;
@@ -275,24 +275,12 @@ class InstanceManager {
 
     let ok = false;
     try {
-      if (instance.role === 'coordinator') {
-        const body = await rp({
-          method: 'GET',
-          followRedirect: true,
-          uri: endpointToUrl(instance.endpoint) + '/_api/foxx/_local/status',
-        });
-
-        const result = JSON.parse(body);
-        ok = result.ready;
-      } else {
-        await rp({
-          method: 'GET',
-          uri: endpointToUrl(instance.endpoint) + '/_api/version',
-        });
-        ok = true;
-      }
-    } catch (e) {
-    }
+      await rp({
+        method: 'GET',
+        uri: endpointToUrl(instance.endpoint) + '/_api/version'
+      });
+      ok = true;
+    } catch (e) {}
     if (ok) {
       return instance;
     } else {
@@ -432,7 +420,7 @@ class InstanceManager {
       [
         'server.endpoint',
         'agency.my-address',
-        'cluster.my-address',
+        'cluster.my-address'
       ].filter(arg => {
         index = instance.args.indexOf('--' + arg + '=' + instance.endpoint);
         if (index !== -1) {
@@ -474,7 +462,7 @@ class InstanceManager {
       if (i !== -1) {
         this.instances = [
           ...this.instances.slice(0, i),
-          ...this.instances.slice(i + 1),
+          ...this.instances.slice(i + 1)
         ];
       }
     });
@@ -506,8 +494,8 @@ class InstanceManager {
       uri: baseUrl + '/_api/agency/read',
       json: true,
       body: [
-        ['/arango/Current/Foxxmaster', '/arango/Current/ServersRegistered'],
-      ],
+        ['/arango/Current/Foxxmaster', '/arango/Current/ServersRegistered']
+      ]
     });
     const uuid = info.arango.Current.Foxxmaster;
     const endpoint = info.arango.Current.ServersRegistered[uuid].endpoint;
