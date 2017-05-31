@@ -168,7 +168,11 @@ class InstanceManager {
               '--server.threads=16',
               '--agency.supervision-frequency=0.5',
               '--agency.supervision-grace-period=2.5',
+              '--agency.compaction-step-size=100',
+              '--agency.compaction-keep-size=50',
               '--agency.my-address=' + endpoint,
+              '--agency.election-timeout-min=0.15',
+              '--agency.election-timeout-max=0.75',
               '--log.force-direct=true',
             ];
             if (instances.length === 0) {

@@ -26,7 +26,7 @@ let writeData = function(leader, data) {
     method: "POST",
     url: endpointToUrl(leader.endpoint) + "/_api/agency/write",
     json: true,
-    body: [[data]],
+    body: data,
     followRedirects: false
   });
 };
@@ -127,7 +127,7 @@ describe("Agency", function() {
       return instanceManager
         .startAgency({ agencySize: agentCount, agencyWaitForSync: true })
         .then(agents => {
-          let data = { hans: "wurst" };
+          let data = [[ { hans: "wurst" } ]];
           return getLeaderInstance(agents)
             .then(leaderInstance => {
               return writeData(leaderInstance, data).then(() => {
@@ -220,7 +220,7 @@ describe("Agency", function() {
     });
 
     it("should failover when stopping the leader", function() {
-      let data = { hans: "wurst" };
+      let data = [[ { hans: "wurst" } ]];
       return writeData(leader, data)
         .then(() => {
           return instanceManager.kill(leader);
@@ -243,7 +243,7 @@ describe("Agency", function() {
     });
 
     it("should not think it is the leader after a restart", function() {
-      let data = { hans: "wurst" };
+      let data = [[ { hans: "wurst" } ]];
       return writeData(leader, data)
         .then(() => {
           return instanceManager.kill(leader);
@@ -293,7 +293,7 @@ describe("Agency", function() {
         });
     });
     it("should reintegrate a crashed follower", function() {
-      let data = { koeln: "sued" };
+      let data = [[ { koeln: "sued" } ]];
       return writeData(leader, data)
         .then(() => {
           return instanceManager.kill(followers[0], "SIGKILL");
@@ -350,7 +350,10 @@ describe("Agency", function() {
       for (let i = 0; i < instanceManager.instances.length * 2; i++) {
         promise = (function(promise, i) {
           return promise.then(() => {
-            let data = { subba: { op: "increment" } };
+            let data = [];
+            for (let j = 0; j < 40; j++) {
+              data.push([ { subba: { op: "increment" } } ]);
+            }
             let instance =
               instanceManager.instances[i % instanceManager.instances.length];
 
@@ -381,7 +384,7 @@ describe("Agency", function() {
         .then(result => {
           expect(result).to.be.instanceof(Array);
           expect(result[0]).to.eql({
-            subba: instanceManager.instances.length * 2
+            subba: instanceManager.instances.length * 2 * 40
           });
         });
     });
