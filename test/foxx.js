@@ -73,7 +73,7 @@ describe('Foxx service', function() {
         });
     });
 
-    it.skip('should survive all coordinators being replaced', function() {
+    it('should survive all coordinators being replaced', function() {
       const instances = im.coordinators();
       return Promise.all(instances.map(instance => im.destroy(instance)))
         .then(() =>
