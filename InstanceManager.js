@@ -443,7 +443,7 @@ class InstanceManager {
         if (instance.status !== 'EXITED') {
           setTimeout(check, 50);
         } else {
-          sleep(10000).then(resolve);
+          resolve();
         }
       };
       check();
