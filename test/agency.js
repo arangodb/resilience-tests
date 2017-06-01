@@ -145,7 +145,7 @@ describe("Agency", function() {
             })
             .then(result => {
               expect(result).to.be.instanceof(Array);
-              expect(result[0]).to.eql(data);
+              expect(result).to.eql(data[0]);
             })
             .then(() => {
               return Promise.all(
@@ -161,6 +161,7 @@ describe("Agency", function() {
               return getLeaderInstance(agents);
             })
             .then(leaderInstance => {
+              console.log(leaderInstance);
               return agencyRequest({
                 method: "POST",
                 url: endpointToUrl(leaderInstance.endpoint) +
@@ -171,7 +172,8 @@ describe("Agency", function() {
             })
             .then(result => {
               expect(result).to.be.instanceof(Array);
-              expect(result[0]).to.eql(data);
+              console.log(result);
+              expect(result).to.eql(data[0]);
             });
         });
     };
@@ -281,7 +283,8 @@ describe("Agency", function() {
               },
               err => {
                 if (err.statusCode == 503) {
-                  // retry immediately...we want to find errors and not grant 1s grace time
+                  // retry immediately...
+                  // we want to find errors and not grant 1s grace time
                   return upButNotLeader();
                 }
                 expect(err.statusCode).to.equal(307);
@@ -351,7 +354,7 @@ describe("Agency", function() {
         promise = (function(promise, i) {
           return promise.then(() => {
             let data = [];
-            for (let j = 0; j < 40; j++) {
+            for (let j = 0; j < 1; j++) {
               data.push([ { subba: { op: "increment" } } ]);
             }
             let instance =
@@ -384,7 +387,7 @@ describe("Agency", function() {
         .then(result => {
           expect(result).to.be.instanceof(Array);
           expect(result[0]).to.eql({
-            subba: instanceManager.instances.length * 2 * 40
+            subba: instanceManager.instances.length * 2 * 1
           });
         });
     });
