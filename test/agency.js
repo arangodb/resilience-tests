@@ -161,7 +161,6 @@ describe("Agency", function() {
               return getLeaderInstance(agents);
             })
             .then(leaderInstance => {
-              console.log(leaderInstance);
               return agencyRequest({
                 method: "POST",
                 url: endpointToUrl(leaderInstance.endpoint) +
@@ -172,7 +171,6 @@ describe("Agency", function() {
             })
             .then(result => {
               expect(result).to.be.instanceof(Array);
-              console.log(result);
               expect(result).to.eql(data[0]);
             });
         });
