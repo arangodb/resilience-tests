@@ -238,7 +238,7 @@ describe("Agency", function() {
         })
         .then(result => {
           expect(result).to.be.instanceof(Array);
-          expect(result[0]).to.eql(data);
+          expect(result).to.eql(data[0]);
         });
     });
 
@@ -315,7 +315,7 @@ describe("Agency", function() {
         })
         .then(result => {
           expect(result).to.be.instanceof(Array);
-          expect(result[0]).to.eql(data);
+          expect(result).to.eql(data[0]);
         });
     });
     it("should have the correct results after a funny fail rotation", function() {
