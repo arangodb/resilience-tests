@@ -163,13 +163,17 @@ class InstanceManager {
               '--agency.activate=true',
               '--agency.size=' + size,
               '--agency.pool-size=' + size,
-              '--agency.wait-for-sync=false',
+              '--agency.wait-for-sync=true',
               '--agency.supervision=true',
               '--server.threads=16',
               '--agency.supervision-frequency=0.5',
               '--agency.supervision-grace-period=2.5',
               '--agency.my-address=' + endpoint,
-              '--log.force-direct=true'
+              '--log.force-direct=true',
+              '--log.level=requests=trace',
+              '--log.level=communication=trace',
+              '--log.level=agency=debug',
+              '--log.file=/tmp/log' + endpoint.slice(endpoint.length-4)
             ];
             if (instances.length === 0) {
               args.push('--agency.endpoint=' + endpoint);
