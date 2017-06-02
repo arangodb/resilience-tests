@@ -46,6 +46,10 @@ class InstanceManager {
     //args.push('--log.level=communication=debug');
     args.push('--server.storage-engine=' + this.storageEngine);
 
+    if (process.env.ARANGO_EXTRA_ARGS) {
+      args = args.concat(process.env.ARANGO_EXTRA_ARGS.split(' '));
+    }
+
     let instance = {
       name,
       role,
