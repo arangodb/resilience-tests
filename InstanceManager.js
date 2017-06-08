@@ -312,58 +312,27 @@ class InstanceManager {
   }
 
   shutdownCluster() {
-    let shutdownPromise;
+    return rp.delete({
+      url: this.getEndpointUrl() + '/_admin/shutdown?shutdown_cluster=1',
+    })
+    .then(() => {
+      let checkDown = () => {
+        let allDown = this.instances.every(instance => {
+          return instance.status === 'EXITED';
+        });
 
-    let nonAgents = [].concat(this.coordinators(), this.dbServers());
-
-    return Promise.all(
-      nonAgents.map(server => {
-        server.process.kill();
-      })
-    )
-      .then(() => {
-        let checkDown = () => {
-          let allDown = nonAgents.every(instance => {
-            return instance.status === 'EXITED';
+        if (allDown) {
+          return Promise.resolve(true);
+        } else {
+          return new Promise((resolve, reject) => {
+            setTimeout(() => {
+              checkDown.bind(this)().then(resolve, reject);
+            }, 100);
           });
-
-          if (allDown) {
-            return Promise.resolve(true);
-          } else {
-            return new Promise((resolve, reject) => {
-              setTimeout(() => {
-                checkDown.bind(this)().then(resolve, reject);
-              }, 1000);
-            });
-          }
-        };
-        return checkDown();
-      })
-      .then(() => {
-        return Promise.all(
-          this.agents().map(agent => {
-            return agent.process.kill();
-          })
-        );
-      })
-      .then(() => {
-        let checkDown = () => {
-          let allDown = this.instances.every(instance => {
-            return instance.status === 'EXITED';
-          });
-
-          if (allDown) {
-            return Promise.resolve(true);
-          } else {
-            return new Promise((resolve, reject) => {
-              setTimeout(() => {
-                checkDown.bind(this)().then(resolve, reject);
-              }, 100);
-            });
-          }
-        };
-        return checkDown();
-      });
+        }
+      };
+      return checkDown();
+    });
   }
 
   cleanup() {
