@@ -158,6 +158,14 @@ class InstanceManager {
     }
     const wfs = options.agencyWaitForSync;
     let promise = Promise.resolve([]);
+    let compactionStep = "200";
+    let compactionKeep = "100";
+    if (process.env.AGENCY_COMPACTION_STEP) {
+      compactionStep = process.env.AGENCY_COMPACTION_STEP;
+    }
+    if (process.env.AGENCY_COMPACTION_KEEP) {
+      compactionKeep = process.env.AGENCY_COMPACTION_KEEP;
+    }
     for (var i = 0; i < size; i++) {
       promise = promise.then(instances => {
         return this.runner
@@ -172,6 +180,8 @@ class InstanceManager {
               '--server.threads=16',
               '--agency.supervision-frequency=0.5',
               '--agency.supervision-grace-period=2.5',
+              '--agency.compaction-step-size='+compactionStep,
+              '--agency.compaction-keep-size='+compactionKeep,
               '--agency.my-address=' + endpoint,
               '--log.force-direct=true'
             ];
