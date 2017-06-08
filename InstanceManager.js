@@ -343,7 +343,7 @@ class InstanceManager {
             return new Promise((resolve, reject) => {
               setTimeout(() => {
                 checkDown.bind(this)().then(resolve, reject);
-              }, 1000);
+              }, 5000);
             });
           }
         };
