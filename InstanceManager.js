@@ -422,11 +422,8 @@ class InstanceManager {
     if (instance.status == 'EXITED') {
       return Promise.resolve(instance);
     }
-    
-    return rp.delete({
-      url: this.getEndpointUrl(instance) + '/_admin/shutdown',
-    })
-    .then(() => {
+
+    let checkDown = function(instance) {
       return new Promise((resolve, reject) => {
         let attempts = 0;
         let maxAttempts = 1200;
@@ -435,13 +432,33 @@ class InstanceManager {
           if (instance.status == 'EXITED') {
             resolve(instance);
           } else if (++attempts > maxAttempts) {
-            reject(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms');
+            reject(new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms'));
           } else {
             setTimeout(checkDown, waitInterval);
           }
         })();
       });
-    });
+    }
+    
+    return rp.delete({
+      url: this.getEndpointUrl(instance) + '/_admin/shutdown',
+    })
+    .catch(err => {
+      if (err && err.error) {
+        if (err.error.code == 'ECONNREFUSED') {
+          console.warn('hmmm...server ' + instance.name + ' did not respond (' + err.code + '). Assuming it is dead. Status is: ' + instance.status);
+          return Promise.resolve(instance);
+        } else if (err.error.code == 'ECONNRESET') {
+          return Promise.resolve(instance);
+        }
+      }
+      console.error("Unhandled error", err);
+
+      return Promise.reject(err);
+    })
+    .then(instance => {
+      return checkDown(instance);
+    })
   }
 
   destroy(instance) {
