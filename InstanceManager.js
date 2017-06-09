@@ -62,7 +62,7 @@ class InstanceManager {
         if (line.trim().length > 0) {
           let logLine =
             instance.name + '(' + instance.process.pid + '): \t' + line;
-          if (process.env.LOG_IMMEDIATE) {
+          if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
             console.log(logLine);
           } else {
             logLine = logLine.replace(/\x1B/g, '');
@@ -326,13 +326,9 @@ class InstanceManager {
 
     let nonAgents = [].concat(this.coordinators(), this.dbServers());
 
-    let stopServer = server => {
-
-    }
-
-    return Promise.all(nonAgents.map(stopServer))
+    return Promise.all(nonAgents.map(this.shutdown.bind(this)))
     .then(() => {
-      return Promise.all(this.agents().map(stopServer))
+      return Promise.all(this.agents().map(this.shutdown.bind(this)))
     });
   }
 
@@ -408,7 +404,7 @@ class InstanceManager {
       throw new Error("Couldn't find instance " + instance.name);
     }
 
-    instance.process.kill(signal);
+    instance.process.kill('SIGKILL');
     instance.status = 'KILLED';
     return new Promise((resolve, reject) => {
       let check = function() {
