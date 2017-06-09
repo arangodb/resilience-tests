@@ -62,7 +62,7 @@ class InstanceManager {
         if (line.trim().length > 0) {
           let logLine =
             instance.name + '(' + instance.process.pid + '): \t' + line;
-          if (process.env.LOG_IMMEDIATE) {
+          if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
             console.log(logLine);
           } else {
             logLine = logLine.replace(/\x1B/g, '');
@@ -326,54 +326,10 @@ class InstanceManager {
 
     let nonAgents = [].concat(this.coordinators(), this.dbServers());
 
-    return Promise.all(
-      nonAgents.map(server => {
-        server.process.kill();
-      })
-    )
-      .then(() => {
-        let checkDown = () => {
-          let allDown = nonAgents.every(instance => {
-            return instance.status === 'EXITED';
-          });
-
-          if (allDown) {
-            return Promise.resolve(true);
-          } else {
-            return new Promise((resolve, reject) => {
-              setTimeout(() => {
-                checkDown.bind(this)().then(resolve, reject);
-              }, 1000);
-            });
-          }
-        };
-        return checkDown();
-      })
-      .then(() => {
-        return Promise.all(
-          this.agents().map(agent => {
-            return agent.process.kill();
-          })
-        );
-      })
-      .then(() => {
-        let checkDown = () => {
-          let allDown = this.instances.every(instance => {
-            return instance.status === 'EXITED';
-          });
-
-          if (allDown) {
-            return Promise.resolve(true);
-          } else {
-            return new Promise((resolve, reject) => {
-              setTimeout(() => {
-                checkDown.bind(this)().then(resolve, reject);
-              }, 100);
-            });
-          }
-        };
-        return checkDown();
-      });
+    return Promise.all(nonAgents.map(this.shutdown.bind(this)))
+    .then(() => {
+      return Promise.all(this.agents().map(this.shutdown.bind(this)))
+    });
   }
 
   cleanup() {
@@ -441,12 +397,14 @@ class InstanceManager {
     });
   }
 
-  kill(instance, signal = 'SIGTERM') {
+  // beware! signals are not supported on windows and it will simply do hard kills all the time
+  // use shutdown to gracefully stop an instance!
+  kill(instance) {
     if (!this.instances.includes(instance)) {
       throw new Error("Couldn't find instance " + instance.name);
     }
 
-    instance.process.kill(signal);
+    instance.process.kill('SIGKILL');
     instance.status = 'KILLED';
     return new Promise((resolve, reject) => {
       let check = function() {
@@ -460,10 +418,36 @@ class InstanceManager {
     });
   }
 
+  shutdown(instance) {
+    if (instance.status == 'EXITED') {
+      return Promise.resolve(instance);
+    }
+    
+    return rp.delete({
+      url: this.getEndpointUrl(instance) + '/_admin/shutdown',
+    })
+    .then(() => {
+      return new Promise((resolve, reject) => {
+        let attempts = 0;
+        let maxAttempts = 1200;
+        let waitInterval = 50;
+        (function checkDown() {
+          if (instance.status == 'EXITED') {
+            resolve(instance);
+          } else if (++attempts > maxAttempts) {
+            reject(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms');
+          } else {
+            setTimeout(checkDown, waitInterval);
+          }
+        })();
+      });
+    });
+  }
+
   destroy(instance) {
     let promise;
     if (this.instances.includes(instance)) {
-      promise = this.kill(instance);
+      promise = this.shutdown(instance);
     } else {
       promise = Promise.resolve();
     }

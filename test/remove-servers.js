@@ -137,7 +137,7 @@ describe("Remove servers", function() {
       .startCluster(1, 2, 2)
       .then(() => {
         let coordinator = instanceManager.coordinators()[1];
-        return instanceManager.kill(coordinator).then(() => {
+        return instanceManager.shutdown(coordinator).then(() => {
           return coordinator;
         });
       })
@@ -210,7 +210,7 @@ describe("Remove servers", function() {
       .startCluster(1, 2, 2)
       .then(() => {
         let coordinator = instanceManager.coordinators()[1];
-        return instanceManager.kill(coordinator).then(() => {
+        return instanceManager.shutdown(coordinator).then(() => {
           return coordinator;
         });
       })
@@ -258,7 +258,7 @@ describe("Remove servers", function() {
               return dbserver;
             })
             .then(() => {
-              return instanceManager.kill(dbserver);
+              return instanceManager.shutdown(dbserver);
             })
             .then(() => {
               return dbserver;

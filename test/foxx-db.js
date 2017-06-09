@@ -33,7 +33,7 @@ describe('Foxx service', function () {
       const db = arangojs(im.getEndpointUrl(coord));
       return im.findPrimaryDbServer('_apps')
       .then((dbServer) => {
-        return im.kill(dbServer)
+        return im.shutdown(dbServer)
         .then(() => im.restart(dbServer));
       })
       .then(() => db.route(MOUNT).get())
@@ -74,7 +74,7 @@ describe('Foxx service', function () {
 
     it('should survive all dbServers being rebooted', function () {
       const instances = im.dbServers();
-      return Promise.all(instances.map(instance => im.kill(instance)))
+      return Promise.all(instances.map(instance => im.shutdown(instance)))
       .then(() => Promise.all(instances.map(instance => im.restart(instance))))
       .then(() => {
         const coord = im.coordinators()[0];
@@ -93,7 +93,7 @@ describe('Foxx service', function () {
       const db = arangojs(im.getEndpointUrl(coord));
       return im.findPrimaryDbServer('_apps')
       .then((dbServer) => {
-        return im.kill(dbServer)
+        return im.shutdown(dbServer)
         .then(() => db.installService(MOUNT, service1))
         .then(() => im.restart(dbServer));
       })
@@ -109,7 +109,7 @@ describe('Foxx service', function () {
       return im.findPrimaryDbServer('_apps')
       .then((dbServer) => {
         return db.installService(MOUNT, service1)
-        .then(() => im.kill(dbServer))
+        .then(() => im.shutdown(dbServer))
         .then(() => db.replaceService(MOUNT, service2))
         .then(() => im.restart(dbServer));
       })
@@ -125,7 +125,7 @@ describe('Foxx service', function () {
       return im.findPrimaryDbServer('_apps')
       .then((dbServer) => {
         return db.installService(MOUNT, service1)
-        .then(() => im.kill(dbServer))
+        .then(() => im.shutdown(dbServer))
         .then(() => db.uninstallService(MOUNT))
         .then(() => im.restart(dbServer));
       })

@@ -75,7 +75,7 @@ describe("Failover", function() {
   it("should fail over to another replica when a server goes down", function() {
     return getLeader()
       .then(dbServer => {
-        return instanceManager.kill(dbServer);
+        return instanceManager.shutdown(dbServer);
       })
       .then(() => {
         return db.collection("testcollection").save({ testung: Date.now() });
@@ -121,7 +121,7 @@ describe("Failover", function() {
             return Promise.resolve();
           }
         };
-        return Promise.all([slicedImport(0), instanceManager.kill(dbServer)]);
+        return Promise.all([slicedImport(0), instanceManager.shutdown(dbServer)]);
       })
       .then(() => {
         return db.collection("testcollection").count();
