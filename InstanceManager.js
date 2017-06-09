@@ -435,7 +435,7 @@ class InstanceManager {
           if (instance.status == 'EXITED') {
             resolve(instance);
           } else if (++attempts > maxAttempts) {
-            reject(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms');
+            reject(new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms'));
           } else {
             setTimeout(checkDown, waitInterval);
           }
@@ -443,13 +443,17 @@ class InstanceManager {
       });
     })
     .catch(err => {
-      console.error("ERR", err);
-      if (err.code == 'ECONNREFUSED' || err.code == 'ECONNRESET') {
-        console.warn('hmmm...server ' + instance.name + ' did not respond (' + err.code + '). Assuming it is dead. Status is: ' + instance.status);
-        return Promise.resolve(instance);
-      } else {
-        return Promise.reject(err);
+      if (err && err.error) {
+        if (err.error.code == 'ECONNREFUSED') {
+          console.warn('hmmm...server ' + instance.name + ' did not respond (' + err.code + '). Assuming it is dead. Status is: ' + instance.status);
+          return Promise.resolve(instance);
+        } else if (err.error.code == 'ECONNRESET') {
+          return Promise.resolve(instance);
+        }
       }
+      console.error("Unhandled error", err);
+
+      return Promise.reject(err);
     })
   }
 
