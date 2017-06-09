@@ -149,7 +149,7 @@ describe("Agency", function() {
             })
             .then(() => {
               return Promise.all(
-                agents.map(agent => instanceManager.kill(agent))
+                agents.map(agent => instanceManager.shutdown(agent))
               );
             })
             .then(() => {
@@ -223,7 +223,7 @@ describe("Agency", function() {
       let data = [[ { hans: "wurst" } ]];
       return writeData(leader, data)
         .then(() => {
-          return instanceManager.kill(leader);
+          return instanceManager.shutdown(leader);
         })
         .then(() => {
           return waitForLeaderChange(leader.endpoint, followers[0].endpoint);
@@ -246,7 +246,7 @@ describe("Agency", function() {
       let data = [[ { hans: "wurst" } ]];
       return writeData(leader, data)
         .then(() => {
-          return instanceManager.kill(leader);
+          return instanceManager.shutdown(leader);
         })
         .then(() => {
           return instanceManager.restart(leader);
@@ -297,7 +297,7 @@ describe("Agency", function() {
       let data = [[ { koeln: "sued" } ]];
       return writeData(leader, data)
         .then(() => {
-          return instanceManager.kill(followers[0], "SIGKILL");
+          return instanceManager.kill(followers[0]);
         })
         .then(() => {
           return instanceManager.restart(followers[0]);
@@ -362,7 +362,7 @@ describe("Agency", function() {
               return writeData(instance, data);
             })
               .then(() => {
-                return instanceManager.kill(instance);
+                return instanceManager.shutdown(instance);
               })
               .then(() => {
                 return instanceManager.restart(instance);
@@ -391,7 +391,7 @@ describe("Agency", function() {
     });
     it("should reintegrate a failed follower starting with a new endpoint", function() {
       return instanceManager
-        .kill(followers[0])
+        .shutdown(followers[0])
         .then(() => {
           return instanceManager.assignNewEndpoint(followers[0]);
         })
@@ -428,7 +428,7 @@ describe("Agency", function() {
     });
     it("should reintegrate a failed leader starting with a new endpoint", function() {
       return instanceManager
-        .kill(leader)
+        .shutdown(leader)
         .then(() => {
           return instanceManager.assignNewEndpoint(leader);
         })

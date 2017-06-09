@@ -433,7 +433,7 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
     afterEach(() => im.cleanup().catch(noop));
 
     it('should be installed on every coordinator', async function() {
-      await im.kill(coordinatorInstance);
+      await im.shutdown(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.false;
       await installAndCheckServices(im, {
         endpointUrl: await getRandomEndpointUrl(im),
@@ -449,7 +449,7 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
         endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall,
       });
-      await im.kill(coordinatorInstance);
+      await im.shutdown(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.false;
       await replaceAndCheckServices(im, {
         endpointUrl: await getRandomEndpointUrl(im),

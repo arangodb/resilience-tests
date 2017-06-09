@@ -49,7 +49,7 @@ describe("ClusterResilience", function() {
       })
       .then(() => {
         let dbServer = instanceManager.dbServers()[0];
-        return instanceManager.kill(dbServer).then(() => {
+        return instanceManager.shutdown(dbServer).then(() => {
           return dbServer;
         });
       })
@@ -82,7 +82,7 @@ describe("ClusterResilience", function() {
       })
       .then(() => {
         let server = instanceManager.coordinators()[0];
-        return instanceManager.kill(server).then(() => {
+        return instanceManager.shutdown(server).then(() => {
           return server;
         });
       })
@@ -108,7 +108,7 @@ describe("ClusterResilience", function() {
   it("should report 503 when a required backend is not available", function() {
     let dbServer = instanceManager.dbServers()[0];
     return instanceManager
-      .kill(dbServer)
+      .shutdown(dbServer)
       .then(server => {
         // mop: wait a bit to possibly make the cluster go wild!
         return new Promise((resolve, reject) => {
@@ -137,7 +137,7 @@ describe("ClusterResilience", function() {
 
   it("should properly shutdown when a backend has failed", function() {
     let dbServer = instanceManager.dbServers()[0];
-    return instanceManager.kill(dbServer, "SIGKILL");
+    return instanceManager.kill(dbServer);
     // mop: afterEach should work
   });
 });
