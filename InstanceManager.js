@@ -444,11 +444,14 @@ class InstanceManager {
       url: this.getEndpointUrl(instance) + '/_admin/shutdown',
     })
     .catch(err => {
-      if (err && err.error) {
+      if (err && (err.statusCode === 503 || err.error)) {
         if (err.error.code == 'ECONNREFUSED') {
           console.warn('hmmm...server ' + instance.name + ' did not respond (' + err.code + '). Assuming it is dead. Status is: ' + instance.status);
           return Promise.resolve(instance);
         } else if (err.error.code == 'ECONNRESET') {
+          return Promise.resolve(instance);
+        } else if (err.statusCode === 503) {
+          console.warn('server ' + instance.name + ' answered 503. Assuming it is shutting down. Status is: ' + instance.status);
           return Promise.resolve(instance);
         }
       }
