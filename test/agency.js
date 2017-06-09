@@ -333,7 +333,7 @@ describe("Agency", function() {
                 return Promise.reject(
                   "Couldn't find leader after " + retries + " retries"
                 );
-              } else if (err.statusCode == 503) {
+              } else if (err.code == 'ECONNRESET' || err.statusCode == 503) {
                 return new Promise((resolve, reject) => {
                   setTimeout(function() {
                     retryUntilUpInner(fn).then(resolve, reject);
