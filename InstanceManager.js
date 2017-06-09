@@ -441,7 +441,16 @@ class InstanceManager {
           }
         })();
       });
-    });
+    })
+    .catch(err => {
+      console.error("ERR", err);
+      if (err.code == 'ECONNREFUSED' || err.code == 'ECONNRESET') {
+        console.warn('hmmm...server ' + instance.name + ' did not respond (' + err.code + '). Assuming it is dead. Status is: ' + instance.status);
+        return Promise.resolve(instance);
+      } else {
+        return Promise.reject(err);
+      }
+    })
   }
 
   destroy(instance) {
