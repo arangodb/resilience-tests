@@ -423,7 +423,7 @@ class InstanceManager {
       return Promise.resolve(instance);
     }
 
-    let checkDown = function(instance) {
+    let checkDown = function() {
       return new Promise((resolve, reject) => {
         let attempts = 0;
         let maxAttempts = 1200;
@@ -456,8 +456,8 @@ class InstanceManager {
 
       return Promise.reject(err);
     })
-    .then(instance => {
-      return checkDown(instance);
+    .then(x => {
+      return checkDown();
     })
   }
 
