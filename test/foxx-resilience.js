@@ -465,7 +465,7 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
         endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall,
       });
-      await im.kill(coordinatorInstance);
+      await im.shutdown(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.false;
       await uninstallAndCheckServices(im, {
         endpointUrl: await getRandomEndpointUrl(im),

@@ -37,7 +37,7 @@ describe('Foxx service', function() {
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
       return im
-        .kill(coord)
+        .shutdown(coord)
         .then(() => im.restart(coord))
         .then(() => db.route(MOUNT).get())
         .then(response => {
@@ -91,7 +91,7 @@ describe('Foxx service', function() {
 
     it('should survive all coordinators being rebooted', function() {
       const instances = im.coordinators();
-      return Promise.all(instances.map(instance => im.kill(instance)))
+      return Promise.all(instances.map(instance => im.shutdown(instance)))
         .then(() =>
           Promise.all(instances.map(instance => im.restart(instance)))
         )
@@ -111,7 +111,7 @@ describe('Foxx service', function() {
       const coord1 = im.coordinators()[0];
       const coord2 = im.coordinators()[1];
       return im
-        .kill(coord2)
+        .shutdown(coord2)
         .then(() => {
           const db = arangojs(im.getEndpointUrl(coord1));
           return db.installService(MOUNT, service1);
@@ -132,7 +132,7 @@ describe('Foxx service', function() {
       const db = arangojs(im.getEndpointUrl(coord1));
       return db
         .installService(MOUNT, service1)
-        .then(() => im.kill(coord2))
+        .then(() => im.shutdown(coord2))
         .then(() => {
           const db = arangojs(im.getEndpointUrl(coord1));
           return db.replaceService(MOUNT, service2);
@@ -153,7 +153,7 @@ describe('Foxx service', function() {
       const db = arangojs(im.getEndpointUrl(coord1));
       return db
         .installService(MOUNT, service1)
-        .then(() => im.kill(coord2))
+        .then(() => im.shutdown(coord2))
         .then(() => {
           const db = arangojs(im.getEndpointUrl(coord1));
           return db.uninstallService(MOUNT);
