@@ -16,6 +16,12 @@ let agencyRequest = function(options) {
       if (err.statusCode === 307) {
         options.url = err.response.headers["location"];
         return agencyRequest(options);
+      } else if (err.statusCode === 503 && err.message === "No leader") {
+        options.retries = (options.retries || 0) + 1;
+        if (options.retries < 5) {
+          return agencyRequest(options);
+        }
+        return Promise.reject(new Error("no leader after 5 retries"));
       }
       return Promise.reject(err);
     });
