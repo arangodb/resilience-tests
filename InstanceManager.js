@@ -4,7 +4,7 @@ const rp = require('request-promise');
 const LocalRunner = require('./LocalRunner.js');
 const DockerRunner = require('./DockerRunner.js');
 const endpointToUrl = require('./common.js').endpointToUrl;
-const WAIT_TIMEOUT = 300; // seconds
+const WAIT_TIMEOUT = 400; // seconds
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(() => resolve(), ms));
