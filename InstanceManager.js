@@ -424,17 +424,20 @@ class InstanceManager {
     }
 
     let checkDown = function() {
+      console.log("FUXX: outer checkDown called", instance.name);
       return new Promise((resolve, reject) => {
         let attempts = 0;
-        let maxAttempts = 1200;
-        let waitInterval = 50;
-        (function checkDown() {
+        let maxAttempts = 360;  // 180s, note that the cluster internally
+                                // has a 120s timeout
+        let waitInterval = 500;
+        (function innerCheckDown() {
+          console.log("FOXY: inner innerCheckDown called", instance.name);
           if (instance.status == 'EXITED') {
             resolve(instance);
           } else if (++attempts > maxAttempts) {
             reject(new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms'));
           } else {
-            setTimeout(checkDown, waitInterval);
+            setTimeout(innerCheckDown, waitInterval);
           }
         })();
       });
