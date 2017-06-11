@@ -427,7 +427,7 @@ class InstanceManager {
       return new Promise((resolve, reject) => {
         console.log("checkDown called for ", instance.name);
         let attempts = 0;
-        let maxAttempts = 4800;  // 240s, note that the cluster internally
+        let maxAttempts = 18000;  // 900s, note that the cluster internally
                                 // has a 120s timeout
         let waitInterval = 50;
         (function innerCheckDown() {
