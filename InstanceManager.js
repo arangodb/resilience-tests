@@ -427,14 +427,15 @@ class InstanceManager {
       return new Promise((resolve, reject) => {
         console.log("checkDown called for ", instance.name);
         let attempts = 0;
-        let maxAttempts = 480;  // 240s, note that the cluster internally
+        let maxAttempts = 4800;  // 240s, note that the cluster internally
                                 // has a 120s timeout
-        let waitInterval = 500;
+        let waitInterval = 50;
         (function innerCheckDown() {
-          console.log("innerCheckDown called for ", instance.name);
           if (instance.status == 'EXITED') {
+            console.log("innerCheckDown resolve for ", instance.name);
             resolve(instance);
           } else if (++attempts > maxAttempts) {
+            console.log("innerCheckDown reject for ", instance.name);
             reject(new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms'));
           } else {
             setTimeout(innerCheckDown, waitInterval);
