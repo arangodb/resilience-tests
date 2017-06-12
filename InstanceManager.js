@@ -425,17 +425,35 @@ class InstanceManager {
 
     let checkDown = function() {
       return new Promise((resolve, reject) => {
-        console.log("checkDown called for ", instance.name);
+        if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+          console.log((new Date()).toISOString()
+            + " checkDown called for " + instance.name);
+        }
         let attempts = 0;
-        let maxAttempts = 18000;  // 900s, note that the cluster internally
-                                // has a 120s timeout
+        let killAttempts = 3600;  // 180s, after this time we kill the instance
+        let maxAttempts = 4000;   // 200s, note that the cluster internally
+                                  // has a 120s timeout
         let waitInterval = 50;
         (function innerCheckDown() {
           if (instance.status == 'EXITED') {
-            console.log("innerCheckDown resolve for ", instance.name);
+            if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+              console.log((new Date()).toISOString()
+                + " innerCheckDown resolve for " + instance.name);
+            }
             resolve(instance);
-          } else if (++attempts > maxAttempts) {
-            console.log("innerCheckDown reject for ", instance.name);
+          } else if (++attempts === killAttempts) {
+            if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+              console.log((new Date()).toISOString()
+                + " innerCheckDown: killed" + instance.name);
+            }
+            instance.process.kill('SIGKILL');
+            instance.status = 'KILLED';
+            setTimeout(innerCheckDown, waitInterval);
+          } else if (attempts > maxAttempts) {
+            if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+              console.log((new Date()).toISOString()
+                + " innerCheckDown reject for " + instance.name);
+            }
             reject(new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms'));
           } else {
             setTimeout(innerCheckDown, waitInterval);
