@@ -83,7 +83,8 @@ class InstanceManager {
           '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
           '--cluster.my-role=PRIMARY',
           '--cluster.my-local-info=' + name,
-          '--cluster.my-address=' + endpoint
+          '--cluster.my-address=' + endpoint,
+          '--log.level=requests=trace'
         ];
         return this.startArango(name, endpoint, 'primary', args);
       })
