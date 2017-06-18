@@ -85,8 +85,7 @@ class InstanceManager {
           '--cluster.my-local-info=' + name,
           '--cluster.my-address=' + endpoint,
           '--log.level=requests=trace',
-          '--log.level=debug',
-          '--log.force-direct=true'
+          '--log.level=debug'
         ];
         return this.startArango(name, endpoint, 'primary', args);
       })
@@ -111,8 +110,7 @@ class InstanceManager {
           '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
           '--cluster.my-role=COORDINATOR',
           '--cluster.my-local-info=' + name,
-          '--cluster.my-address=' + endpoint,
-          '--log.force-direct=true'
+          '--cluster.my-address=' + endpoint
         ];
         return this.startArango(name, endpoint, 'coordinator', args);
       })
@@ -187,7 +185,6 @@ class InstanceManager {
               '--agency.compaction-step-size='+compactionStep,
               '--agency.compaction-keep-size='+compactionKeep,
               '--agency.my-address=' + endpoint,
-              '--log.force-direct=true',
               '--log.level=requests=debug'
             ];
             if (instances.length === 0) {
