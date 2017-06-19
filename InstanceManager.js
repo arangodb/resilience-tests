@@ -86,7 +86,8 @@ class InstanceManager {
           '--cluster.my-address=' + endpoint,
           '--log.level=requests=trace',
           '--log.level=communication=trace',
-          '--log.level=debug'
+          '--log.level=debug',
+          '--log.level=replication=debug'
         ];
         return this.startArango(name, endpoint, 'primary', args);
       })
