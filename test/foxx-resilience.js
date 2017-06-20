@@ -789,8 +789,8 @@ function suiteDevModeDifferentServiceSetups() {
           {
             mount: MOUNT_1,
             service: service2,
-            checksum: SERVICE_2_CHECKSUM,
-            result: SERVICE_2_RESULT
+            checksum: 'd8bce44b',
+            result: SERVICE_2_RESULT 
           }
         ]
       })
@@ -816,13 +816,13 @@ function suiteDevModeDifferentServiceSetups() {
           {
             mount: MOUNT_1,
             service: service2,
-            checksum: SERVICE_2_CHECKSUM,
+            checksum: 'd8bce44b',
             result: SERVICE_2_RESULT
           },
           {
             mount: MOUNT_2,
             service: service1,
-            checksum: SERVICE_1_CHECKSUM,
+            checksum: '6d7faf6',
             result: SERVICE_1_RESULT
           }
         ]
