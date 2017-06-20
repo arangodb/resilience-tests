@@ -790,7 +790,7 @@ function suiteDevModeDifferentServiceSetups() {
             mount: MOUNT_1,
             service: service2,
             checksum: 'd8bce44b',
-            result: SERVICE_2_RESULT 
+            result: SERVICE_2_RESULT
           }
         ]
       })
