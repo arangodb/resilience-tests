@@ -850,11 +850,7 @@ function suiteDevMode(params) {
       const db = await arangojs(endpointUrl);
       for (const service of params.servicesToReplace) {
         await db.enableServiceDevelopmentMode(service.mount);
-        await prepopulateServiceFiles(
-          endpointUrl,
-          service.mount,
-          service.service
-        );
+        await replaceServiceFiles(endpointUrl, service.mount, service.service);
       }
       const resultPerMount = new Map(
         params.servicesToReplace.map(info => [info.mount, info.result])
@@ -864,6 +860,15 @@ function suiteDevMode(params) {
       for (const service of params.servicesToReplace) {
         await db.disableServiceDevelopmentMode(service.mount);
       }
+      const checksumPerMount = new Map(
+        params.servicesToReplace.map(info => [info.mount, info.checksum])
+      );
+      await checkServices([endpointUrl], checksumPerMount, checkBundleChecksum);
+      await checkServices(
+        [endpointUrl],
+        checksumPerMount,
+        checkBundleChecksumInCollection
+      );
       await checkAllServices(im, params.servicesToReplace);
     });
   };
@@ -1136,6 +1141,14 @@ async function deleteLocalServiceFiles(endpointUrl, mount) {
 async function prepopulateServiceFiles(endpointUrl, mount, service) {
   await arangojs(endpointUrl).route(UTIL_MOUNT).request({
     method: 'POST',
+    rawBody: service,
+    qs: {mount}
+  });
+}
+
+async function replaceServiceFiles(endpointUrl, mount, service) {
+  await arangojs(endpointUrl).route(UTIL_MOUNT).request({
+    method: 'PUT',
     rawBody: service,
     qs: {mount}
   });
