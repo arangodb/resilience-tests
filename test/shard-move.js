@@ -162,14 +162,12 @@ describe("Move shards", function() {
         return db.collection("testcollection").count();
       })
       .then(count => {
-        //expect(count.count).to.equal(10000);
         return db.collection("testcollection").all();
       })
       .then(cursor => {
         return cursor.all();
       })
       .then(all => {
-        console.error("Collection data is:", JSON.stringify(all));
         all = all.map(doc => doc.hallooo);
         all.sort((a, b) => (a < b ? -1 : 1));
         expect(all).to.deep.equal([...Array(10000).keys()]);
