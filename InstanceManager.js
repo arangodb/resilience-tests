@@ -182,8 +182,7 @@ class InstanceManager {
               '--agency.supervision-grace-period=2.5',
               '--agency.compaction-step-size='+compactionStep,
               '--agency.compaction-keep-size='+compactionKeep,
-              '--agency.my-address=' + endpoint,
-              '--log.level=requests=debug'
+              '--agency.my-address=' + endpoint
             ];
             if (instances.length === 0) {
               args.push('--agency.endpoint=' + endpoint);
