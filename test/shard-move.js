@@ -172,7 +172,14 @@ describe("Move shards", function() {
         all.sort((a, b) => { if (a < b) { return -1; }
                              else if (a > b) { return 1; }
                              else { return 0; } });
-        console.error("Hanswurst:", all);
+        if (all.length !== 10000) {
+          console.error("Found", all.length, "documents of expected 10000.");
+          for (let i = 0; i < all.length; ++i) {
+            if (all[i] !== i) {
+              console.error("At position", i, "we got", all[i], "instead of",i);
+            }
+          }
+        }
         expect(all).to.deep.equal([...Array(10000).keys()]);
       });
   });
