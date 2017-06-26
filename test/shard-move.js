@@ -169,7 +169,8 @@ describe("Move shards", function() {
       })
       .then(all => {
         all = all.map(doc => doc.hallooo);
-        all.sort((a, b) => (a < b ? -1 : 1));
+        all.sort();
+        console.error("Hanswurst:", all);
         expect(all).to.deep.equal([...Array(10000).keys()]);
       });
   });
