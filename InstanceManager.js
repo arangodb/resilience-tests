@@ -251,16 +251,21 @@ class InstanceManager {
     _.extend(agencyOptions, {agencySize: numAgents});
 
     return this.startAgency(agencyOptions)
+      .then(agents => { return new Promise.delay(2000, agents); })
       .then(agents => {
         let promises = [Promise.resolve(agents)];
 
+        let dbServers = Array.from(Array(numDbServers).keys()).map(index => {
+          return this.startDbServer('dbServer-' + (index + 1));
+        });
+        return Promise.all(dbServers);
+      })
+      .then(dbServers => { return new Promise.delay(2000, dbServers); })
+      .then(dbServers => {
         let coordinators = Array.from(
           Array(numCoordinators).keys()
         ).map(index => {
           return this.startCoordinator('coordinator-' + (index + 1));
-        });
-        let dbServers = Array.from(Array(numDbServers).keys()).map(index => {
-          return this.startDbServer('dbServer-' + (index + 1));
         });
         return Promise.all([].concat(coordinators, dbServers));
       })
@@ -541,9 +546,10 @@ class InstanceManager {
     const fm = await this.getFoxxmaster();
     await this.shutdownCluster();
     await Promise.all(this.agents().map(agent => this.restart(agent)));
+    await sleep(2000);
     await Promise.all(this.dbServers().map(dbs => this.restart(dbs)));
     this.restart(fm);
-    await sleep(100);
+    await sleep(2000);
     await Promise.all(
       this.coordinators()
         .filter(coord => coord !== fm)
