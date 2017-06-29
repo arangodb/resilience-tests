@@ -155,10 +155,12 @@ describe("Move shards", function() {
 
     return insertDocuments()
       .then(() => {
+        console.log("Done inserting 10000 docs.");
         moveShards.stop = true;
         return movePromise;
       })
       .then(() => {
+        console.log("movePromise resolved");
         return db.collection("testcollection").count();
       })
       .then(count => {
@@ -181,6 +183,10 @@ describe("Move shards", function() {
           }
         }
         expect(all).to.deep.equal([...Array(10000).keys()]);
+      })
+      .catch((houseofcards) => {
+        console.trace("The whole house of cards has just collapsed:",
+                      houseofcards);
       });
   });
 });
