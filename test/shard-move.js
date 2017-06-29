@@ -183,10 +183,6 @@ describe("Move shards", function() {
           }
         }
         expect(all).to.deep.equal([...Array(10000).keys()]);
-      })
-      .catch((houseofcards) => {
-        console.trace("The whole house of cards has just collapsed:",
-                      houseofcards);
       });
   });
 });
