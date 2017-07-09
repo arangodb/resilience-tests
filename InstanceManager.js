@@ -45,15 +45,15 @@ class InstanceManager {
     //args.push('--log.level=v8=debug')
 
     if (process.env.LOG_COMMUNICATION && process.env.LOG_COMMUNICATION !== "") {
-        args.push('--log.level=communication="' + process.env.LOG_COMMUNICATION + '"');
+        args.push('--log.level=communication=' + process.env.LOG_COMMUNICATION);
     }
     
     if (process.env.LOG_REQUESTS && process.env.LOG_REQUESTS !== "") {
-        args.push('--log.level=requests=trace"' + process.env.LOG_REQUESTS + '"');
+        args.push('--log.level=requests=' + process.env.LOG_REQUESTS);
     }
     
     if (process.env.LOG_AGENCY && process.env.LOG_AGENCY !== "") {
-        args.push('--log.level=agency="' + '"');
+        args.push('--log.level=agency=' + process.env.LOG_AGENCY);
     }
     
     args.push('--server.storage-engine=' + this.storageEngine);
