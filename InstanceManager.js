@@ -43,7 +43,19 @@ class InstanceManager {
   startArango(name, endpoint, role, args) {
     args.push('--server.authentication=false');
     //args.push('--log.level=v8=debug')
-    //args.push('--log.level=communication=debug');
+
+    if (process.env.LOG_COMMUNICATION && process.env.LOG_COMMUNICATION !== "") {
+        args.push('--log.level=communication="' + process.env.LOG_COMMUNICATION + '"');
+    }
+    
+    if (process.env.LOG_REQUESTS && process.env.LOG_REQUESTS !== "") {
+        args.push('--log.level=requests=trace"' + process.env.LOG_REQUESTS + '"');
+    }
+    
+    if (process.env.LOG_AGENCY && process.env.LOG_AGENCY !== "") {
+        args.push('--log.level=agency="' + '"');
+    }
+    
     args.push('--server.storage-engine=' + this.storageEngine);
 
     if (process.env.ARANGO_EXTRA_ARGS) {
