@@ -11,7 +11,7 @@ describe("Failover", function() {
   let db;
 
   let getLeader = function() {
-    return rp({
+    return instanceManager.rpAgency({
       method: "POST",
       url: instanceManager.getEndpointUrl(instanceManager.agents()[0]) +
         "/_api/agency/read",

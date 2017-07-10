@@ -40,6 +40,23 @@ class InstanceManager {
     this.dbServerCounter = 0;
   }
 
+  async rpAgency(o) {
+    let count = 0;
+    let delay = 100;
+    o.followAllRedirects = true;
+    while (true) {
+      try {
+        return await rp(o);
+      } catch(e) {
+        if (e.statusCode !== 503 && count++ < 100) {
+          throw e;
+        }
+      }
+      await new Promise.delay(delay);
+      delay = delay * 2; if (delay > 8000) { delay = 8000; }
+    }
+  }
+
   startArango(name, endpoint, role, args) {
     args.push('--server.authentication=false');
     //args.push('--log.level=v8=debug')
@@ -47,15 +64,15 @@ class InstanceManager {
     if (process.env.LOG_COMMUNICATION && process.env.LOG_COMMUNICATION !== "") {
         args.push('--log.level=communication=' + process.env.LOG_COMMUNICATION);
     }
-    
+
     if (process.env.LOG_REQUESTS && process.env.LOG_REQUESTS !== "") {
         args.push('--log.level=requests=' + process.env.LOG_REQUESTS);
     }
-    
+
     if (process.env.LOG_AGENCY && process.env.LOG_AGENCY !== "") {
         args.push('--log.level=agency=' + process.env.LOG_AGENCY);
     }
-    
+
     args.push('--server.storage-engine=' + this.storageEngine);
 
     if (process.env.ARANGO_EXTRA_ARGS) {
@@ -223,7 +240,7 @@ class InstanceManager {
 
   findPrimaryDbServer(collectionName) {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
-    return rp({
+    return rpAgency({
       method: 'POST',
       uri: baseUrl + '/_api/agency/read',
       json: true,
@@ -478,7 +495,7 @@ class InstanceManager {
         })();
       });
     }
-    
+
     return rp.delete({
       url: this.getEndpointUrl(instance) + '/_admin/shutdown',
     })
@@ -542,7 +559,7 @@ class InstanceManager {
 
   async getFoxxmaster() {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
-    const [info] = await rp({
+    const [info] = await rpAgency({
       method: 'POST',
       uri: baseUrl + '/_api/agency/read',
       json: true,
