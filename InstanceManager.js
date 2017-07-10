@@ -240,7 +240,7 @@ class InstanceManager {
 
   findPrimaryDbServer(collectionName) {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
-    return rpAgency({
+    return this.rpAgency({
       method: 'POST',
       uri: baseUrl + '/_api/agency/read',
       json: true,
@@ -559,7 +559,7 @@ class InstanceManager {
 
   async getFoxxmaster() {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
-    const [info] = await rpAgency({
+    const [info] = await this.rpAgency({
       method: 'POST',
       uri: baseUrl + '/_api/agency/read',
       json: true,
