@@ -329,7 +329,7 @@ describe("Agency", function() {
         let retries = 0;
         let retryUntilUpInner = function(fn) {
           let waitTime = 50;
-          let maxRetries = 100;
+          let maxRetries = 500;
           return fn().then(
             result => {
               return result;
@@ -337,7 +337,7 @@ describe("Agency", function() {
             err => {
               if (retries++ > maxRetries) {
                 return Promise.reject(
-                  "Couldn't find leader after " + retries + " retries"
+                  new Error("Couldn't find leader after " + retries + " retries")
                 );
               } else if (err.code == 'ECONNRESET' || err.statusCode == 503) {
                 return new Promise((resolve, reject) => {
@@ -357,16 +357,22 @@ describe("Agency", function() {
       for (let i = 0; i < instanceManager.instances.length * 2; i++) {
         promise = (function(promise, i) {
           return promise.then(() => {
-            let data = [];
-            for (let j = 0; j < 1; j++) {
-              data.push([ { subba: { op: "increment" } } ]);
-            }
+            let data = [[ { subba: { op: "increment" } }, {}, "funny"+i ]];
+            let data2 = [[ { dummy: 1 } ]];
             let instance =
               instanceManager.instances[i % instanceManager.instances.length];
 
             return retryUntilUp(function() {
-              return writeData(instance, data);
+              return writeData(instance, data2);
             })
+              .then(() => {
+                return instanceManager.rpAgency({
+                  method: "POST",
+                  url: endpointToUrl(instance.endpoint) + "/_api/agency/write",
+                  json: true,
+                  body: data,
+                });
+              })
               .then(() => {
                 return instanceManager.shutdown(instance);
               })
@@ -391,7 +397,8 @@ describe("Agency", function() {
         .then(result => {
           expect(result).to.be.instanceof(Array);
           expect(result[0]).to.eql({
-            subba: instanceManager.instances.length * 2 * 1
+            subba: instanceManager.instances.length * 2 * 1,
+            dummy: 1
           });
         });
     });
