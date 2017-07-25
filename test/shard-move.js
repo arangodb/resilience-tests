@@ -174,15 +174,16 @@ describe("Move shards", function() {
         all.sort((a, b) => { if (a < b) { return -1; }
                              else if (a > b) { return 1; }
                              else { return 0; } });
+        
+        let errorMsg = '';
         if (all.length !== 10000) {
-          console.error("Found", all.length, "documents of expected 10000.");
           for (let i = 0; i < all.length; ++i) {
             if (all[i] !== i) {
-              console.error("At position", i, "we got", all[i], "instead of",i);
+              errorMsg += "At position " + i + " we got " + all[i] + " instead of " + i + "\n";
             }
           }
         }
-        expect(all).to.deep.equal([...Array(10000).keys()]);
+        expect(all, errorMsg).to.have.lengthOf(10000);
       });
   });
 });
