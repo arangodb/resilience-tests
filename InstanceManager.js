@@ -4,7 +4,7 @@ const rp = require('request-promise');
 const LocalRunner = require('./LocalRunner.js');
 const DockerRunner = require('./DockerRunner.js');
 const endpointToUrl = require('./common.js').endpointToUrl;
-const WAIT_TIMEOUT = 400; // seconds
+const WAIT_TIMEOUT = 300; // seconds
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(() => resolve(), ms));
@@ -40,39 +40,10 @@ class InstanceManager {
     this.dbServerCounter = 0;
   }
 
-  async rpAgency(o) {
-    let count = 0;
-    let delay = 100;
-    o.followAllRedirects = true;
-    while (true) {
-      try {
-        return await rp(o);
-      } catch(e) {
-        if (e.statusCode !== 503 && count++ < 100) {
-          throw e;
-        }
-      }
-      await new Promise.delay(delay);
-      delay = delay * 2; if (delay > 8000) { delay = 8000; }
-    }
-  }
-
   startArango(name, endpoint, role, args) {
     args.push('--server.authentication=false');
     //args.push('--log.level=v8=debug')
-
-    if (process.env.LOG_COMMUNICATION && process.env.LOG_COMMUNICATION !== "") {
-        args.push('--log.level=communication=' + process.env.LOG_COMMUNICATION);
-    }
-
-    if (process.env.LOG_REQUESTS && process.env.LOG_REQUESTS !== "") {
-        args.push('--log.level=requests=' + process.env.LOG_REQUESTS);
-    }
-
-    if (process.env.LOG_AGENCY && process.env.LOG_AGENCY !== "") {
-        args.push('--log.level=agency=' + process.env.LOG_AGENCY);
-    }
-
+    //args.push('--log.level=communication=debug');
     args.push('--server.storage-engine=' + this.storageEngine);
 
     if (process.env.ARANGO_EXTRA_ARGS) {
@@ -137,8 +108,7 @@ class InstanceManager {
           '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
           '--cluster.my-role=COORDINATOR',
           '--cluster.my-local-info=' + name,
-          '--cluster.my-address=' + endpoint,
-          '--log.level=requests=trace'
+          '--cluster.my-address=' + endpoint
         ];
         return this.startArango(name, endpoint, 'coordinator', args);
       })
@@ -212,7 +182,8 @@ class InstanceManager {
               '--agency.supervision-grace-period=2.5',
               '--agency.compaction-step-size='+compactionStep,
               '--agency.compaction-keep-size='+compactionKeep,
-              '--agency.my-address=' + endpoint
+              '--agency.my-address=' + endpoint,
+              '--log.force-direct=true'
             ];
             if (instances.length === 0) {
               args.push('--agency.endpoint=' + endpoint);
@@ -238,9 +209,27 @@ class InstanceManager {
     });
   }
 
+  startAgent() {
+    this.agentCounter++;
+    return this.runner
+      .createEndpoint()
+      .then(endpoint => {
+        let args = [
+          '--agency.activate=true',
+          '--agency.endpoint=' + instances[0].endpoint,
+          '--log.force-direct=true'
+        ];
+        return this.startArango(name, endpoint, 'coordinator', args);
+      })
+      .then(instance => {
+        this.instances.push(instance);
+        return instance;
+      });
+  }
+
   findPrimaryDbServer(collectionName) {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
-    return this.rpAgency({
+    return rp({
       method: 'POST',
       uri: baseUrl + '/_api/agency/read',
       json: true,
@@ -281,21 +270,16 @@ class InstanceManager {
     _.extend(agencyOptions, {agencySize: numAgents});
 
     return this.startAgency(agencyOptions)
-      .then(agents => { return new Promise.delay(2000, agents); })
       .then(agents => {
         let promises = [Promise.resolve(agents)];
 
-        let dbServers = Array.from(Array(numDbServers).keys()).map(index => {
-          return this.startDbServer('dbServer-' + (index + 1));
-        });
-        return Promise.all(dbServers);
-      })
-      .then(dbServers => { return new Promise.delay(2000, dbServers); })
-      .then(dbServers => {
         let coordinators = Array.from(
           Array(numCoordinators).keys()
         ).map(index => {
           return this.startCoordinator('coordinator-' + (index + 1));
+        });
+        let dbServers = Array.from(Array(numDbServers).keys()).map(index => {
+          return this.startDbServer('dbServer-' + (index + 1));
         });
         return Promise.all([].concat(coordinators, dbServers));
       })
@@ -456,67 +440,34 @@ class InstanceManager {
     if (instance.status == 'EXITED') {
       return Promise.resolve(instance);
     }
-
-    let checkDown = function() {
-      return new Promise((resolve, reject) => {
-        if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-          console.log((new Date()).toISOString()
-            + " checkDown called for " + instance.name);
-        }
-        let attempts = 0;
-        let killAttempts = 3600;  // 180s, after this time we kill the instance
-        let maxAttempts = 4000;   // 200s, note that the cluster internally
-                                  // has a 120s timeout
-        let waitInterval = 50;
-        (function innerCheckDown() {
-          if (instance.status == 'EXITED') {
-            if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-              console.log((new Date()).toISOString()
-                + " innerCheckDown resolve for " + instance.name);
-            }
-            resolve(instance);
-          } else if (++attempts === killAttempts) {
-            if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-              console.log((new Date()).toISOString()
-                + " innerCheckDown: killed" + instance.name);
-            }
-            instance.process.kill('SIGKILL');
-            instance.status = 'KILLED';
-            setTimeout(innerCheckDown, waitInterval);
-          } else if (attempts > maxAttempts) {
-            if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-              console.log((new Date()).toISOString()
-                + " innerCheckDown reject for " + instance.name);
-            }
-            reject(new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms'));
-          } else {
-            setTimeout(innerCheckDown, waitInterval);
-          }
-        })();
-      });
-    }
-
+    
     return rp.delete({
       url: this.getEndpointUrl(instance) + '/_admin/shutdown',
     })
-    .catch(err => {
-      if (err && (err.statusCode === 503 || err.error)) {
-        if (err.error.code == 'ECONNREFUSED') {
-          console.warn('hmmm...server ' + instance.name + ' did not respond (' + err.code + '). Assuming it is dead. Status is: ' + instance.status);
-          return checkDown();
-        } else if (err.error.code == 'ECONNRESET') {
-          return checkDown();
-        } else if (err.statusCode === 503) {
-          console.warn('server ' + instance.name + ' answered 503. Assuming it is shutting down. Status is: ' + instance.status);
-          return checkDown();
-        }
-      }
-      console.error("Unhandled error", err);
-
-      return Promise.reject(err);
+    .then(() => {
+      return new Promise((resolve, reject) => {
+        let attempts = 0;
+        let maxAttempts = 1200;
+        let waitInterval = 50;
+        (function checkDown() {
+          if (instance.status == 'EXITED') {
+            resolve(instance);
+          } else if (++attempts > maxAttempts) {
+            reject(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms');
+          } else {
+            setTimeout(checkDown, waitInterval);
+          }
+        })();
+      });
     })
-    .then(x => {
-      return checkDown();
+    .catch(err => {
+      console.error("ERR", err);
+      if (err.code == 'ECONNREFUSED' || err.code == 'ECONNRESET') {
+        console.warn('hmmm...server ' + instance.name + ' did not respond (' + err.code + '). Assuming it is dead. Status is: ' + instance.status);
+        return Promise.resolve(instance);
+      } else {
+        return Promise.reject(err);
+      }
     })
   }
 
@@ -559,7 +510,7 @@ class InstanceManager {
 
   async getFoxxmaster() {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
-    const [info] = await this.rpAgency({
+    const [info] = await rp({
       method: 'POST',
       uri: baseUrl + '/_api/agency/read',
       json: true,
@@ -576,10 +527,9 @@ class InstanceManager {
     const fm = await this.getFoxxmaster();
     await this.shutdownCluster();
     await Promise.all(this.agents().map(agent => this.restart(agent)));
-    await sleep(2000);
     await Promise.all(this.dbServers().map(dbs => this.restart(dbs)));
     this.restart(fm);
-    await sleep(2000);
+    await sleep(100);
     await Promise.all(
       this.coordinators()
         .filter(coord => coord !== fm)

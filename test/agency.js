@@ -16,12 +16,6 @@ let agencyRequest = function(options) {
       if (err.statusCode === 307) {
         options.url = err.response.headers["location"];
         return agencyRequest(options);
-      } else if (err.statusCode === 503 && err.message === "No leader") {
-        options.retries = (options.retries || 0) + 1;
-        if (options.retries < 5) {
-          return agencyRequest(options);
-        }
-        return Promise.reject(new Error("no leader after 5 retries"));
       }
       return Promise.reject(err);
     });
@@ -52,6 +46,46 @@ let waitForReintegration = function(endpoint) {
       return waitForReintegration(endpoint);
     }
   });
+};
+
+let waitForReintegration = function(endpoint) {
+  // mop: when reading works again we are reintegrated :)
+  return rp({
+    method: "POST",
+    url: endpointToUrl(endpoint) + "/_api/agency/read",
+    json: true,
+    body: [["/"]],
+    followRedirects: false
+  }).catch(err => {
+    if (err.statusCode == 307) {
+      return Promise.resolve();
+    } else {
+      return waitForReintegration(endpoint);
+    }
+  });
+};
+
+let waitForAgencySize = function(endpoint,size) {
+  // mop: when size is as expected we're done
+  return rp({
+    method: "GET",
+    url: endpointToUrl(endpoint) + "/_api/agency/config",
+    json: true,
+    followRedirects: false
+  }).then(config => {
+    if (config.pool.length() === size) {
+      return;
+    } else {
+      return new Promise((resolve, reject) => {
+        setTimeout(resolve, waitInterval);
+      }).then(() => {
+        return waitForAgencySize(size);
+      });
+    }
+  }).catch(err => {
+    return waitForAgencySize(size);
+  });
+  
 };
 
 let waitForLeaderChange = function(oldLeaderEndpoint, followerEndpoint) {
@@ -299,6 +333,7 @@ describe("Agency", function() {
           return upButNotLeader();
         });
     });
+
     it("should reintegrate a crashed follower", function() {
       let data = [[ { koeln: "sued" } ]];
       return writeData(leader, data)
@@ -395,6 +430,7 @@ describe("Agency", function() {
           });
         });
     });
+
     it("should reintegrate a failed follower starting with a new endpoint", function() {
       return instanceManager
         .shutdown(followers[0])
@@ -432,6 +468,7 @@ describe("Agency", function() {
           });
         });
     });
+
     it("should reintegrate a failed leader starting with a new endpoint", function() {
       return instanceManager
         .shutdown(leader)
@@ -468,5 +505,27 @@ describe("Agency", function() {
           });
         });
     });
+
+    it("should integrate a new agent to a resilient agency", function() {
+      return instanceManager
+        .startAgent()
+        .then(() => {
+          return waitForAgencySize(leader.endpoint, 4)
+            .then(() => {
+              return rp({
+                url: endpointToUrl(leader.endpoint) + "/_api/agency/config",
+                json: true
+              });
+            })
+            .then(result => {
+              expect(result.leaderId).to.not.be.empty;
+              expect(
+                result.configuration.pool[result.configuration.id]
+              ).to.equal(leader.endpoint);
+              return result.configuration.id;
+            });
+        });
+    });
+    
   });
 });
