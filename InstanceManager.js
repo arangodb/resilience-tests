@@ -40,6 +40,77 @@ class InstanceManager {
     this.dbServerCounter = 0;
   }
 
+  async rpAgency(o) {
+    let count = 0;
+    let delay = 100;
+    o.followAllRedirects = true;
+    while (true) {
+      try {
+        return await rp(o);
+      } catch(e) {
+        if (e.statusCode !== 503 && count++ < 100) {
+          throw e;
+        }
+      }
+      await new Promise.delay(delay);
+      delay = delay * 2; if (delay > 8000) { delay = 8000; }
+    }
+  }
+
+  async rpAgencySingleWrite(o) {
+    // This can be used if the body of the request contains a single writing
+    // transaction which contains a clientID as third element. If we get a
+    // 503 we try /_api/agency/inquire until we get a definitive answer as
+    // to whether the call has worked or not.
+    if (!Array.isArray(o.body) || o.body.length !== 1 ||
+        !Array.isArray(o.body[0]) || o.body.length !== 3 ||
+        typeof o.body[0][2] !== 'string') {
+      console.log("Illegal use of rpAgencySingleWrite!");
+      return this.rpWrite(o);
+    }
+    let count = 0;
+    let delay = 100;
+    let oo;
+    o.followAllRedirects = true;
+    let isInquiry = false;
+    while (true) {
+      if (!isInquiry) {
+        try {
+          return await rp(o);
+        } catch(e) {
+          if (e.statusCode !== 503 && count++ < 100) {
+            throw e;
+          }
+          isInquiry = true;  // switch to inquiry mode
+        }
+      } else {
+        let oo = { method: o.method, url: o.url.replace("write", "inquire"),
+                   json: o.json, body: [o.body[0][2]],
+                   followAllRedirects: true };
+        let res;
+        // If this throws, we fail:
+        res = await rp(oo);
+        if (Array.isArray(res.body) && res.body.length == 1 &&
+            Array.isArray(res.body[0])) {
+          if (res.body[0].length == 1 &&
+              typeof res.body[0][0] == 'number') {
+            res.body = res.body[0];
+            return res;  // this is a bit of a fake because the URL is now
+                         // /_api/agency/inquire, but never mind.
+          } else if (res.body[0].length == 0) {
+            isInquiry = false;  // try again normally
+          } else {
+            throw new Error('Illegal answer from /_api/agency/inquire');
+          }
+        } else {
+          throw new Error('Illegal answer from /_api/agency/inquire');
+        }
+      }
+      await new Promise.delay(delay);
+      delay = delay * 2; if (delay > 8000) { delay = 8000; }
+    }
+  }
+
   startArango(name, endpoint, role, args) {
     args.push('--server.authentication=false');
     //args.push('--log.level=v8=debug')
