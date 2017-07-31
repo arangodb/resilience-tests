@@ -280,20 +280,26 @@ class InstanceManager {
     });
   }
 
-  startAgent() {
-    this.agentCounter++;
+  startAgent(instances) {
     return this.runner
       .createEndpoint()
       .then(endpoint => {
         let args = [
           '--agency.activate=true',
-          '--agency.endpoint=' + instances[0].endpoint,
+          '--agency.my-address=' + endpoint,
+          '--agency.size=3',
           '--log.force-direct=true'
         ];
-        return this.startArango(name, endpoint, 'coordinator', args);
+        for (var i = 0; i < this.agentCounter; ++i) {
+          console.error(i + " " + instances[i].endpoint);
+          args.push('--agency.endpoint='+instances[i].endpoint);
+        }
+        console.error(args);
+        return this.startArango('agency-' + (this.agentCounter+1), endpoint, 'agent', args);
       })
       .then(instance => {
         this.instances.push(instance);
+        this.agentCounter++;
         return instance;
       });
   }

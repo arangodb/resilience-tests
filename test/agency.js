@@ -48,23 +48,6 @@ let waitForReintegration = function(endpoint) {
   });
 };
 
-let waitForReintegration = function(endpoint) {
-  // mop: when reading works again we are reintegrated :)
-  return rp({
-    method: "POST",
-    url: endpointToUrl(endpoint) + "/_api/agency/read",
-    json: true,
-    body: [["/"]],
-    followRedirects: false
-  }).catch(err => {
-    if (err.statusCode == 307) {
-      return Promise.resolve();
-    } else {
-      return waitForReintegration(endpoint);
-    }
-  });
-};
-
 let waitForAgencySize = function(endpoint,size) {
   // mop: when size is as expected we're done
   return rp({
@@ -73,17 +56,21 @@ let waitForAgencySize = function(endpoint,size) {
     json: true,
     followRedirects: false
   }).then(config => {
-    if (config.pool.length() === size) {
+    if (Object.keys(config.configuration.pool).length === size) {
       return;
     } else {
       return new Promise((resolve, reject) => {
-        setTimeout(resolve, waitInterval);
+        setTimeout(resolve, 1000);
       }).then(() => {
-        return waitForAgencySize(size);
+        return waitForAgencySize(endpoint,size);
       });
     }
   }).catch(err => {
-    return waitForAgencySize(size);
+    return new Promise((resolve, reject) => {
+      setTimeout(resolve, 1000);
+    }).then(() => {
+      return waitForAgencySize(endpoint,size);
+    });
   });
   
 };
@@ -513,9 +500,30 @@ describe("Agency", function() {
         });
     });
 
-    it("should integrate a new agent to a resilient agency", function() {
+    it("should integrate a new agent to a resilient agency (add-server-3)", function() {
       return instanceManager
-        .startAgent()
+        .startAgent(instanceManager.instances)
+        .then(() => {
+          return waitForAgencySize(leader.endpoint, 4)
+            .then(() => {
+              return rp({
+                url: endpointToUrl(leader.endpoint) + "/_api/agency/config",
+                json: true
+              });
+            })
+            .then(result => {
+              expect(result.leaderId).to.not.be.empty;
+              expect(
+                result.configuration.pool[result.configuration.id]
+              ).to.equal(leader.endpoint);
+              return result.configuration.id;
+            });
+        });
+    });
+    
+    it("should integrate a new agent to a resilient agency (remove-server-3)", function() {
+      return instanceManager
+        .startAgent(instanceManager.instances)
         .then(() => {
           return waitForAgencySize(leader.endpoint, 4)
             .then(() => {
