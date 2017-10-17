@@ -158,10 +158,10 @@ class InstanceManager {
     return this.runner.firstStart(instance);
   }
 
-  async startSingleServer(name, num = 1) {
+  async startSingleServer(nameIn, num = 1) {
     const newInst = [];
     for (let i = 0; i < num; i++) {
-      name = `${name}-${++this.singleServerCounter}`;
+      const name = `${nameIn}-${++this.singleServerCounter}`;
       const ep = await this.runner.createEndpoint();
       const inst = await this.startArango(name, ep,
         'single', [
@@ -302,7 +302,7 @@ class InstanceManager {
     return this.instances = instances;
   }
 
-  async _asyncReplicationEndpoints(numServers) {
+  async _asyncReplicationUrls(numServers) {
     const body = await rp.get({ uri: `${endpointToUrl(this.instances.slice(-1).pop().endpoint)}/_api/cluster/endpoints`, json: true});
     if (body.error) {
       throw new Error(body);
@@ -310,24 +310,23 @@ class InstanceManager {
     if (body.endpoints.length !== numServers) {
       throw new Error(`AsyncReplication: not all servers ready. Have ${body.endpoints.length} servers`);
     }
-    return body.endpoints;
+    return body.endpoints.map(ep => endpointToUrl(ep));
   }
 
-  async asyncReplicationMaster(numServers) {
-    const eps = await this._asyncReplicationEndpoints(numServers);
-    return eps[0];
+  async asyncReplicationMasterUrl(numServers) {
+    const urls = await this._asyncReplicationUrls(numServers);
+    return urls[0];
   }
 
   async asyncReplicationMasterInstance(numServers) {
-    let masterEndpoint = await this.asyncReplicationMaster(numServers);
-    masterEndpoint = endpointToUrl(masterEndpoint);
+    const masterUrl = await this.asyncReplicationMasterUrl(numServers);
 
     return this.singleServers()
-    .filter(inst => masterEndpoint === endpointToUrl(inst.endpoint))[0];
+    .filter(inst => masterUrl === endpointToUrl(inst.endpoint))[0];
   }
 
   async asyncReplicationMasterCon(db = '_system') {
-    return arangojs({ url: await this.asyncReplicationMaster(), databaseName: db });
+    return arangojs({ url: await this.asyncReplicationMasterUrl(), databaseName: db });
   }
 
   asyncReplicationCons(db = '_system') {
@@ -354,6 +353,28 @@ class InstanceManager {
     if (servers.length !== numServers) {
       throw new Error(`AsyncReplication: Requested {numServers}, but {servers.length} ready`);
     }
+  }
+
+  async _asyncReplicationMasterTick(masterUrl) {
+    const body = await rp.get({json: true, uri: `${masterUrl}/_api/wal/lastTick`});
+    return body.tick;
+  }
+
+  async asyncReplicationInSync(numServer, masterTick = null, singleUrl = null) {
+    if (masterTick === null && singleUrl === null) {
+      const urls = await this._asyncReplicationUrls(numServer);
+      masterTick = await this._asyncReplicationMasterTick(urls.shift());
+
+      const result =  await Promise.all(
+        urls.map(async url => await this.asyncReplicationInSync(numServer, masterTick, url))
+        .filter(async slaveTick => masterTick ===  await slaveTick)
+      );
+
+      return result.length === numServer - 1 // minus master
+    }
+
+    const body = await rp.get({json: true, uri:`${singleUrl}/_api/replication/applier-state?global=true`});
+    return body.state.lastProcessedContinuousTick;
   }
 
   findPrimaryDbServer(collectionName) {
@@ -415,7 +436,7 @@ class InstanceManager {
         ).map(index => {
           return this.startCoordinator('coordinator-' + (index + 1));
         });
-        return Promise.all([].concat(coordinators, dbServers));
+        return Promise.all([...coordinators, ...dbServers]);
       })
       .then(servers => {
         return this.waitForAllInstances();
@@ -437,8 +458,7 @@ class InstanceManager {
 
     let ok = false;
     try {
-      await rp({
-        method: 'GET',
+      await rp.get({
         uri: endpointToUrl(instance.endpoint) + '/_api/version'
       });
       ok = true;

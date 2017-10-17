@@ -7,9 +7,9 @@ const arangojs = require('arangojs');
 const expect = require('chai').expect;
 const sleep = (ms= 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
-describe('Setup', function() {
+describe('SameTick', function() {
   const instanceManager = new InstanceManager('setup');
-  it('should be possible to stop and restart async replication', async function() {
+  it('all singles should have the same tick', async function() {
       await instanceManager.startAgency({agencySize:1});
 
       await instanceManager.startSingleServer('async-failover', 5);
@@ -18,13 +18,9 @@ describe('Setup', function() {
 
       await sleep(30*1000); // /_api/cluster/endpoints returns all endpoints
 
-      console.log(await instanceManager._asyncReplicationEndpoints(5));
-      console.log('master is', await instanceManager.asyncReplicationMaster(5));
-      
-      const masterInstance = await instanceManager.asyncReplicationMasterInstance(5);
-      console.log(masterInstance.endpoint);
+      const inSync = await instanceManager.asyncReplicationInSync(5);
 
-      expect(0).to.equal(0);
+      expect(inSync).to.equal(true);
   });
 
   afterEach(function() {
