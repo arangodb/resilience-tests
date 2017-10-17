@@ -2,7 +2,7 @@
 'use strict';
 const join = require('path').join;
 const readFileSync = require('fs').readFileSync;
-const InstanceManager = require('../InstanceManager');
+const InstanceManager = require('../../InstanceManager');
 const arangojs = require('arangojs');
 const aql = arangojs.aql;
 const expect = require('chai').expect;

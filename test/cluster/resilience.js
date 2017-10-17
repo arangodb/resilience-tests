@@ -1,6 +1,6 @@
 /* global describe, it, before, after, afterEach */
 "use strict";
-const InstanceManager = require("../InstanceManager.js");
+const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
 

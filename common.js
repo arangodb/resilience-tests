@@ -6,15 +6,14 @@ const ip = require('ip');
 function startInstance(instance) {
   instance.port = portFromEndpoint(instance.endpoint);
   return new Promise((resolve, reject) => {
-    let process = spawn(instance.binary, instance.args);
+    const process = spawn(instance.binary, instance.args);
 
-    process.stdout.on('data', data => {
-      data.toString().split('\n').forEach(instance.logFn);
-    });
+    process.stdout.on('data', data =>
+      data.toString().split('\n').forEach(instance.logFn));
 
-    process.stderr.on('data', data => {
-      data.toString().split('\n').forEach(instance.logFn);
-    });
+    process.stderr.on('data', data =>
+      data.toString().split('\n').forEach(instance.logFn));
+
     process.on('exit', code => {
       instance.status = 'EXITED';
       instance.exitcode = code;
