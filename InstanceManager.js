@@ -302,17 +302,28 @@ class InstanceManager {
     return this.instances = instances;
   }
 
-  async _asyncReplicationEndpoints() {
+  async _asyncReplicationEndpoints(numServers) {
     const body = await rp.get({ uri: `${endpointToUrl(this.instances.slice(-1).pop().endpoint)}/_api/cluster/endpoints`, json: true});
     if (body.error) {
       throw new Error(body);
     }
+    if (body.endpoints.length !== numServers) {
+      throw new Error(`AsyncReplication: not all servers ready. Have ${body.endpoints.length} servers`);
+    }
     return body.endpoints;
   }
 
-  async asyncReplicationMaster() {
-    const eps = await this._asyncReplicationEndpoints();
+  async asyncReplicationMaster(numServers) {
+    const eps = await this._asyncReplicationEndpoints(numServers);
     return eps[0];
+  }
+
+  async asyncReplicationMasterInstance(numServers) {
+    let masterEndpoint = await this.asyncReplicationMaster(numServers);
+    masterEndpoint = endpointToUrl(masterEndpoint);
+
+    return this.singleServers()
+    .filter(inst => masterEndpoint === endpointToUrl(inst.endpoint))[0];
   }
 
   async asyncReplicationMasterCon(db = '_system') {
@@ -324,7 +335,7 @@ class InstanceManager {
       arangojs({ url: endpointToUrl(inst.endpoint), databaseName: db }));
   }
 
-  async asyncReplicationReady(numServers) {
+  async asyncReplicationLeaderSelected(numServers) {
     await this.waitForAllInstances();
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
 
