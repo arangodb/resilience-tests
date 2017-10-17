@@ -347,11 +347,11 @@ class InstanceManager {
     const servers = Object.keys(body[0].arango.Plan.Singles);
 
     if (-1 === servers.indexOf(leader)) {
-      throw new Error(`AsyncReplication: Leader {leader} not one of single servers`);
+      throw new Error(`AsyncReplication: Leader ${leader} not one of single servers`);
     }
 
     if (servers.length !== numServers) {
-      throw new Error(`AsyncReplication: Requested {numServers}, but {servers.length} ready`);
+      throw new Error(`AsyncReplication: Requested ${numServers}, but ${servers.length} ready`);
     }
   }
 
