@@ -11,12 +11,37 @@ describe('SameTick', function() {
   const instanceManager = new InstanceManager('setup');
   it('all singles should have the same tick', async function() {
       await instanceManager.startAgency({agencySize:1});
-
-      await instanceManager.startSingleServer('async-failover', 5);
+      await instanceManager.startSingleServer('single', 5);
       await instanceManager.waitForAllInstances();
       await instanceManager.asyncReplicationLeaderSelected(5);
 
       await sleep(30*1000); // /_api/cluster/endpoints returns all endpoints
+
+      console.log(instanceManager.instances.map(inst=>inst.endpoint));
+
+      console.log('beginne abschießen');
+      for (let i = 0; i < 100; i++) {
+        const masterInstance = await instanceManager.asyncReplicationMasterInstance(5);
+        await instanceManager.kill(masterInstance);
+        console.log('killed master');
+
+        await sleep(10*1000);
+        await instanceManager.asyncReplicationLeaderSelected(5);
+        console.log('leader selected');
+
+        await instanceManager.restart(masterInstance);
+        console.log('master instance restarted');
+        
+        await sleep(20*1000);
+        
+        await instanceManager.asyncReplicationLeaderSelected(5);
+        console.log('leader selected');
+
+        const inSync = await instanceManager.asyncReplicationInSync(5);
+        console.log('in sync', inSync);
+
+        await sleep(30*1000);
+      }
 
       const inSync = await instanceManager.asyncReplicationInSync(5);
 

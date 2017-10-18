@@ -167,7 +167,6 @@ class InstanceManager {
         'single', [
           `--cluster.agency-endpoint=${this.getAgencyEndpoint()}`,
           `--cluster.my-role=SINGLE`,
-          `--cluster.my-local-info=${name}`,
           `--cluster.my-address=${ep}`,
           `--replication.automatic-failover=true`
       ]);
@@ -185,7 +184,6 @@ class InstanceManager {
         const args = [
           `--cluster.agency-endpoint=${this.getAgencyEndpoint()}`,
           `--cluster.my-role=PRIMARY`,
-          `--cluster.my-local-info=${name}`,
           `--cluster.my-address=${endpoint}`
         ];
         return this.startArango(name, endpoint, 'primary', args);
@@ -210,7 +208,6 @@ class InstanceManager {
         let args = [
           '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
           '--cluster.my-role=COORDINATOR',
-          '--cluster.my-local-info=' + name,
           '--cluster.my-address=' + endpoint,
           '--log.level=requests=trace'
         ];
@@ -244,7 +241,6 @@ class InstanceManager {
     let args = [
       '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
       '--cluster.my-role=' + role,
-      '--cluster.my-local-info=' + name,
       '--cluster.my-address=' + instance.endpoint
     ];
     return this.startArango(name, instance.endpoint, instance.role, args)
@@ -335,7 +331,6 @@ class InstanceManager {
   }
 
   async asyncReplicationLeaderSelected(numServers) {
-    await this.waitForAllInstances();
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
 
     const body = await this.rpAgency({
