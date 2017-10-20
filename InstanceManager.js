@@ -4,7 +4,8 @@ const arangojs = require('arangojs');
 const rp = require('request-promise');
 const LocalRunner = require('./LocalRunner.js');
 const DockerRunner = require('./DockerRunner.js');
-const endpointToUrl = require('./common.js').endpointToUrl;
+const common = require('./common.js');
+const endpointToUrl = common.endpointToUrl;
 const WAIT_TIMEOUT = 400; // seconds
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -298,46 +299,22 @@ class InstanceManager {
     return this.instances = instances;
   }
 
-  async _asyncReplicationUrls(numServers) {
-    const body = await rp.get({ uri: `${endpointToUrl(this.instances.slice(-1).pop().endpoint)}/_api/cluster/endpoints`, json: true});
-    if (body.error) {
-      throw new Error(body);
-    }
-    if (body.endpoints.length !== numServers) {
-      throw new Error(`AsyncReplication: not all servers ready. Have ${body.endpoints.length} servers`);
-    }
-    return body.endpoints.map(ep => endpointToUrl(ep));
-  }
-
-  async asyncReplicationMasterUrl(numServers) {
-    const urls = await this._asyncReplicationUrls(numServers);
-    return urls[0];
-  }
-
-  async asyncReplicationMasterInstance(numServers) {
-    const masterUrl = await this.asyncReplicationMasterUrl(numServers);
-
-    return this.singleServers()
-    .filter(inst => masterUrl === endpointToUrl(inst.endpoint))[0];
-  }
-
-  async asyncReplicationMasterCon(db = '_system') {
-    return arangojs({ url: await this.asyncReplicationMasterUrl(), databaseName: db });
-  }
-
-  asyncReplicationCons(db = '_system') {
-    return this.singleServers().map(inst =>
-      arangojs({ url: endpointToUrl(inst.endpoint), databaseName: db }));
-  }
-
-  async asyncReplicationLeaderSelected(numServers) {
+  /// Lookup the async failover leader in agency
+  async asyncReplicationLeaderId() {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
 
-    const body = await this.rpAgency({
-      method: 'POST', json: true,
-      uri: `${baseUrl}/_api/agency/read`,
-      body: [['/arango/Plan']]
-    });
+    let body;
+    try {
+      body = await rp({
+        method: 'POST', json: true,
+        uri: `${baseUrl}/_api/agency/read`,
+        followAllRedirects: true,      
+        body: [['/arango/Plan']]
+      });
+    } catch(e) {
+      return null;
+    }
+    
     const leader = body[0].arango.Plan.AsyncReplication.Leader;
     const servers = Object.keys(body[0].arango.Plan.Singles);
 
@@ -345,33 +322,78 @@ class InstanceManager {
       throw new Error(`AsyncReplication: Leader ${leader} not one of single servers`);
     }
 
-    if (servers.length !== numServers) {
+    let singles = this.singleServers();
+    if (servers.length !== singles.length) {
       throw new Error(`AsyncReplication: Requested ${numServers}, but ${servers.length} ready`);
     }
+    return leader;
   }
 
-  async _asyncReplicationMasterTick(masterUrl) {
-    const body = await rp.get({json: true, uri: `${masterUrl}/_api/wal/lastTick`});
+  /// wait for leader selection
+  async asyncReplicationLeaderSelected() {
+    let i = 100;
+    while (i-- > 0) {
+      let leader = await this.asyncReplicationLeaderId();
+      if (leader !== null) {
+        return leader;
+      }
+      await sleep(100);
+    }
+    return false;
+  }
+
+  /// look into the agency and return the master instance
+  /// assumes leader is in agency, does not try again
+  async asyncReplicationLeaderInstance() {
+    const uuid = await this.asyncReplicationLeaderId();
+    if (uuid == null) {
+      throw "leader is not in agency";
+    }
+    console.log("Leader in agency %s", uuid)
+    let instance = await this.resolveUUID(uuid);
+    if (!instance) {
+      throw "Could not find leader instance locally";
+    }
+    return instance;
+  }
+
+  async lastWalTick(url) {
+    url = endpointToUrl(url);    
+    const body = await rp.get({json: true, uri: `${url}/_api/wal/lastTick`});
     return body.tick;
   }
 
-  async asyncReplicationInSync(numServer, masterTick = null, singleUrl = null) {
-    if (masterTick === null && singleUrl === null) {
-      const urls = await this._asyncReplicationUrls(numServer);
-      masterTick = await this._asyncReplicationMasterTick(urls.shift());
-
-      const result =  await Promise.all(
-        urls.map(async url => await this.asyncReplicationInSync(numServer, masterTick, url))
-        .filter(async slaveTick => masterTick ===  await slaveTick)
-      );
-
-      return result.length === numServer - 1 // minus master
-    }
-
-    const body = await rp.get({json: true, uri:`${singleUrl}/_api/replication/applier-state?global=true`});
-    return body.state.lastProcessedContinuousTick;
+  /// Wait for servers to get in sync
+  async getApplierState(url) {
+    url = endpointToUrl(url);
+    const body = await rp.get({json: true, uri:`${url}/_api/replication/applier-state?global=true`});
+    return body.state;
   }
 
+  /// Wait for servers to get in sync with leader
+  async asyncReplicationTicksInSync(seconds = 30) {
+    const leader = await this.asyncReplicationLeaderInstance();
+    const leaderTick = await this.lastWalTick(leader.endpoint);
+    console.log("Leader Tick %s = %s", leader.endpoint, leaderTick);
+    let followers = this.singleServers().filter(inst => inst.endpoint != leader.endpoint);
+
+    let tttt = Math.abs(Math.ceil(seconds)) * 2;
+    for (let i = 0; i < tttt; i++) {
+      const result = await Promise.all(followers.map(async flw => this.getApplierState(flw.endpoint)))
+      let unfinished = result.filter(state => 
+        common.compareTicks(state.lastProcessedContinuousTick, leaderTick) == -1
+      );
+      if (unfinished.length == 0) {
+        return true;
+      } 
+      await sleep(500); // 0.5s
+      if (i % 2 == 0 && i > tttt / 2) {
+        console.log("Unfinished state: %s", JSON.stringify(unfinished));
+      }
+    }
+    return false;
+  }
+  
   findPrimaryDbServer(collectionName) {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
     return this.rpAgency({
@@ -530,7 +552,21 @@ class InstanceManager {
     return this.instances.filter(inst => inst.role === 'single');
   }
 
-
+  /// use Current/ServersRegistered to find the corresponding
+  /// instance metadata
+  resolveUUID(uuid) {
+    const baseUrl = endpointToUrl(this.getAgencyEndpoint());
+    return this.rpAgency({
+      method: 'POST',
+      uri: baseUrl + '/_api/agency/read',
+      json: true,
+      body: [['/arango/Current/ServersRegistered']]
+    }).then(([info]) => {
+      const servers = info.arango.Current.ServersRegistered;
+      let url = servers[uuid].endpoint;
+      return this.instances.filter(inst => inst.endpoint == url).shift();
+    });
+  }
 
   assignNewEndpoint(instance) {
     let index = this.instances.indexOf(instance);

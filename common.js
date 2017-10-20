@@ -77,8 +77,31 @@ const endpointToUrl = function(endpoint) {
   return 'http' + endpoint.substr(pos);
 };
 
+const compareTicks = function(l, r) {
+  var i;
+  if (l === null) {
+    l = "0";
+  }
+  if (r === null) {
+    r = "0";
+  }
+  if (l.length !== r.length) {
+    return l.length - r.length < 0 ? -1 : 1;
+  }
+
+  // length is equal
+  for (i = 0; i < l.length; ++i) {
+    if (l[i] !== r[i]) {
+      return l[i] < r[i] ? -1 : 1;
+    }
+  }
+
+  return 0;
+};
+
 exports.endpointToUrl = endpointToUrl;
 exports.portFromEndpoint = portFromEndpoint;
 exports.createEndpoint = createEndpoint;
 exports.startInstance = startInstance;
 exports.findFreePort = findFreePort;
+exports.compareTicks = compareTicks;
