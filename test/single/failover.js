@@ -9,8 +9,8 @@ const arangojs = require('arangojs');
 const expect = require('chai').expect;
 const sleep = (ms= 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
-  /// return the list of endpoints, in a normal cluster this is the list of
-  /// coordinator endpoints.
+/// return the list of endpoints, in a normal cluster this is the list of
+/// coordinator endpoints.
 async function requestEndpoints(url) {
   url = endpointToUrl(url);
   const body = await rp.get({ uri: `${url}/_api/cluster/endpoints`, json: true});
@@ -47,71 +47,71 @@ describe('Synchronize tick values', async function() {
     return instanceManager.cleanup();
   });
 
-  for (let i = 2; i <= 8; i *= 2) {
-    it(`for ${i} servers`, async function() {
-      await instanceManager.startSingleServer('single', i);
+  /// check tick values synchronize, check endpoints
+  /// TODO check for redirects to leader
+  async function doAsyncReplChecks(n, leader) {
+    console.log("Leader selected, waiting for tick synchronization...");
+    const inSync = await instanceManager.asyncReplicationTicksInSync();
+    expect(inSync).to.equal(true, "slaves did not get in sync before timeout");
+
+    // wait at least 0.5s + 2.5s for agency supervision
+    // to persist the health status
+    //await sleep(5000);    
+
+    console.log("Checking endpoints...");
+    /// make sure all servers know the leader
+    let servers = instanceManager.singleServers();
+    //expect(servers).to.have.lengthOf(n);
+    for (let x = 0; x < servers.length; x++) {
+      let url = endpointToUrl(servers[x].endpoint);
+      let body = await rp.get({ uri: `${url}/_admin/server/role`, json: true});
+      expect(body.mode).to.equal("resilient", `Wrong response ${JSON.stringify(body)}`);
+      //  TODO check location header on other APIs
+
+      let list = await requestEndpoints(servers[x].endpoint);
+      // TODO only works after waiting ~5s for agency supervision
+      //expect(list).to.have.lengthOf(n, "Endpoints: " + JSON.stringify(list));
+      expect(leader.endpoint).to.equal(list[0]);
+    }
+  }
+
+  for (let n = 2; n <= 8; n *= 2) {
+    it(`for ${n} servers`, async function() {
+      await instanceManager.startSingleServer('single', n);
       await instanceManager.waitForAllInstances();
 
-      // current leader
-      let leaderUUID = await instanceManager.asyncReplicationLeaderSelected();
-      expect(leaderUUID).to.not.equal(false);
+      // get current leader
+      await instanceManager.asyncReplicationLeaderSelected();
       const leader = await instanceManager.asyncReplicationLeaderInstance();
-      
-      console.log("Leader selected, waiting for tick synchronization...");
-      const inSync = await instanceManager.asyncReplicationTicksInSync();
-      expect(inSync).to.equal(true, "slaves did not get in sync before timeout");
 
-      console.log("Checking endpoints...");
-      /// make sure all servers know the leader
-      let servers = instanceManager.singleServers();
-      expect(servers).to.have.lengthOf(i);
-      for (let x = 0; x < servers.length; x++) {
-        let list = await requestEndpoints(servers[x].endpoint);
-        //expect(list).to.have.lengthOf(i);
-        console.log("Endpoints %s", JSON.stringify(list));
-        expect(leader.endpoint).to.equal(list[0]);
-      }
+      await doAsyncReplChecks(n, leader);
     });
   }
 
-  /*
-  it('singles should have the same tick', async function() {
-    await instanceManager.startSingleServer('single', 5);
+  /*let n = 2;
+  it(`for ${n} servers with failover`, async function() {
+    await instanceManager.startSingleServer('single', n);
     await instanceManager.waitForAllInstances();
-    await instanceManager.asyncReplicationLeaderSelected(5);
 
-    await sleep(30*1000); // /_api/cluster/endpoints returns all endpoints
+    // wait for leader selection
+    let uuid = await instanceManager.asyncReplicationLeaderSelected();
+    let leader = await instanceManager.asyncReplicationLeaderInstance();
+    await doAsyncReplChecks(n, leader);
 
-    console.log(instanceManager.instances.map(inst=>inst.endpoint));
+    console.log('killing leader %s', leader.endpoint);    
+    await instanceManager.kill(leader);
 
-    console.log('beginne abschießen');
-    for (let i = 0; i < 100; i++) {
-      const masterInstance = await instanceManager.asyncReplicationMasterInstance(5);
-      await instanceManager.kill(masterInstance);
-      console.log('killed master');
+    
+    await instanceManager.asyncReplicationLeaderSelected(uuid);
+    leader = await instanceManager.asyncReplicationLeaderInstance();
+    // checks expecting one server less
+    await doAsyncReplChecks(n - 1, leader);
+    
+    await instanceManager.restart(leader);
+    console.log('killed instance restarted');
 
-      await sleep(10*1000);
-      await instanceManager.asyncReplicationLeaderSelected(5);
-      console.log('leader selected');
-
-      await instanceManager.restart(masterInstance);
-      console.log('master instance restarted');
-      
-      await sleep(20*1000);
-      
-      await instanceManager.asyncReplicationLeaderSelected(5);
-      console.log('leader selected');
-
-      const inSync = await instanceManager.asyncReplicationInSync(5);
-      console.log('in sync', inSync);
-
-      await sleep(30*1000);
-    }
-
-    const inSync = await instanceManager.asyncReplicationInSync(5);
-
-    expect(inSync).to.equal(true);
+    //checks with one more server
+    await doAsyncReplChecks(n, leader);
   });*/
 
 });
-//*/

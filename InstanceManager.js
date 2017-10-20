@@ -330,16 +330,16 @@ class InstanceManager {
   }
 
   /// wait for leader selection
-  async asyncReplicationLeaderSelected() {
+  async asyncReplicationLeaderSelected(ignore = null) {
     let i = 100;
     while (i-- > 0) {
-      let leader = await this.asyncReplicationLeaderId();
-      if (leader !== null) {
-        return leader;
+      let val = await this.asyncReplicationLeaderId();
+      if (val !== null && ignore !== val) {
+        return val;
       }
       await sleep(100);
     }
-    return false;
+    throw new Error("Timout waiting for leader selection");
   }
 
   /// look into the agency and return the master instance
@@ -352,7 +352,7 @@ class InstanceManager {
     console.log("Leader in agency %s", uuid)
     let instance = await this.resolveUUID(uuid);
     if (!instance) {
-      throw "Could not find leader instance locally";
+      throw new Error("Could not find leader instance locally");
     }
     return instance;
   }
@@ -371,13 +371,15 @@ class InstanceManager {
   }
 
   /// Wait for servers to get in sync with leader
-  async asyncReplicationTicksInSync(seconds = 30) {
-    const leader = await this.asyncReplicationLeaderInstance();
+  async asyncReplicationTicksInSync(leader = null) {
+    if (!leader) {
+      leader = await this.asyncReplicationLeaderInstance();
+    }
     const leaderTick = await this.lastWalTick(leader.endpoint);
     console.log("Leader Tick %s = %s", leader.endpoint, leaderTick);
     let followers = this.singleServers().filter(inst => inst.endpoint != leader.endpoint);
 
-    let tttt = Math.abs(Math.ceil(seconds)) * 2;
+    let tttt = 12;
     for (let i = 0; i < tttt; i++) {
       const result = await Promise.all(followers.map(async flw => this.getApplierState(flw.endpoint)))
       let unfinished = result.filter(state => 
