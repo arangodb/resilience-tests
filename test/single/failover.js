@@ -170,6 +170,30 @@ describe('Synchronize tick values', async function() {
       await instanceManager.restart(old);
       console.log('killed instance restarted');
     }
+  });//*/
+  
+  f = n - 1;
+  it(`for ${n} servers with ${f} failovers no restart`, async function() {
+    await instanceManager.startSingleServer('single', n);
+    await instanceManager.waitForAllInstances();
+
+    // wait for leader selection
+    let uuid = await instanceManager.asyncReplicationLeaderSelected();
+    let leader = await instanceManager.asyncReplicationLeaderInstance();
+    for (; f > 0; f--) {
+      await doServerChecks(n, leader);
+      // leader should not change
+      expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+
+      console.log('killing leader %s', leader.endpoint);    
+      await instanceManager.kill(leader);
+      let old = leader;
+  
+      uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
+      leader = await instanceManager.asyncReplicationLeaderInstance();
+      // checks expecting one server less
+      await doServerChecks(--n, leader);
+    }
   });
 
 });
