@@ -145,7 +145,7 @@ describe('Synchronize tick values', async function() {
     });
   }
 
-  /*let n = 10, f = 5;
+  let n = 8, f = 10;
   it(`for ${n} servers with ${f} failovers and leader restart`, async function() {
     await instanceManager.startSingleServer('single', n);
     await instanceManager.waitForAllInstances();
@@ -170,6 +170,6 @@ describe('Synchronize tick values', async function() {
       await instanceManager.restart(old);
       console.log('killed instance restarted');
     }
-  });*/
+  });
 
 });
