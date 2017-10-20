@@ -316,8 +316,10 @@ class InstanceManager {
     }
     
     const leader = body[0].arango.Plan.AsyncReplication.Leader;
+    if (!leader) {
+      return null;
+    }
     const servers = Object.keys(body[0].arango.Plan.Singles);
-
     if (-1 === servers.indexOf(leader)) {
       throw new Error(`AsyncReplication: Leader ${leader} not one of single servers`);
     }
@@ -371,13 +373,12 @@ class InstanceManager {
   }
 
   /// Wait for servers to get in sync with leader
-  async asyncReplicationTicksInSync(leader = null) {
-    if (!leader) {
-      leader = await this.asyncReplicationLeaderInstance();
-    }
+  async asyncReplicationTicksInSync() {
+    let leader = await this.asyncReplicationLeaderInstance();
     const leaderTick = await this.lastWalTick(leader.endpoint);
     console.log("Leader Tick %s = %s", leader.endpoint, leaderTick);
-    let followers = this.singleServers().filter(inst => inst.endpoint != leader.endpoint);
+    let followers = this.singleServers().filter(inst => inst.status === 'RUNNING' && 
+                                                        inst.endpoint != leader.endpoint);      
 
     let tttt = 12;
     for (let i = 0; i < tttt; i++) {
