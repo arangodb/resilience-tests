@@ -102,16 +102,19 @@ describe('Synchronize tick values', async function() {
       await instanceManager.waitForAllInstances();
 
       // get current leader
-      await instanceManager.asyncReplicationLeaderSelected();
+      let uuid = await instanceManager.asyncReplicationLeaderSelected();
       console.log("Leader selected");
       const leader = await instanceManager.asyncReplicationLeaderInstance();
 
       await doServerChecks(n, leader);
+
+      // leader should not change
+      expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
     });
   }
 
   for (let n = 3; n <= 9; n *= 2) {
-    it(`for ${n} servers with failover`, async function() {
+    it(`for ${n} servers with failover and leader restart`, async function() {
       await instanceManager.startSingleServer('single', n);
       await instanceManager.waitForAllInstances();
 
@@ -119,12 +122,14 @@ describe('Synchronize tick values', async function() {
       let uuid = await instanceManager.asyncReplicationLeaderSelected();
       let leader = await instanceManager.asyncReplicationLeaderInstance();
       await doServerChecks(n, leader);
+      // leader should not change
+      expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
 
       console.log('killing leader %s', leader.endpoint);    
       await instanceManager.kill(leader);
       let old = leader;
 
-      await instanceManager.asyncReplicationLeaderSelected(uuid);
+      uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
       leader = await instanceManager.asyncReplicationLeaderInstance();
       // checks expecting one server less
       await doServerChecks(n - 1, leader);
@@ -134,7 +139,37 @@ describe('Synchronize tick values', async function() {
 
       //checks with one more server
       await doServerChecks(n, leader);
+
+      // leader should not change
+      expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
     });
   }
+
+  /*let n = 10, f = 5;
+  it(`for ${n} servers with ${f} failovers and leader restart`, async function() {
+    await instanceManager.startSingleServer('single', n);
+    await instanceManager.waitForAllInstances();
+
+    // wait for leader selection
+    let uuid = await instanceManager.asyncReplicationLeaderSelected();
+    let leader = await instanceManager.asyncReplicationLeaderInstance();
+    for (; f > 0; f--) {
+      await doServerChecks(n, leader);
+      // leader should not change
+      expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+
+      console.log('killing leader %s', leader.endpoint);    
+      await instanceManager.kill(leader);
+      let old = leader;
+  
+      uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
+      leader = await instanceManager.asyncReplicationLeaderInstance();
+      // checks expecting one server less
+      await doServerChecks(n - 1, leader);
+      
+      await instanceManager.restart(old);
+      console.log('killed instance restarted');
+    }
+  });*/
 
 });
