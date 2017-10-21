@@ -373,14 +373,14 @@ class InstanceManager {
   }
 
   /// Wait for servers to get in sync with leader
-  async asyncReplicationTicksInSync() {
+  async asyncReplicationTicksInSync(timoutSecs = 30) {
     let leader = await this.asyncReplicationLeaderInstance();
     const leaderTick = await this.lastWalTick(leader.endpoint);
     console.log("Leader Tick %s = %s", leader.endpoint, leaderTick);
     let followers = this.singleServers().filter(inst => inst.status === 'RUNNING' && 
                                                         inst.endpoint != leader.endpoint);      
 
-    let tttt = 12;
+    let tttt = Math.ceil(timoutSecs * 2);
     for (let i = 0; i < tttt; i++) {
       const result = await Promise.all(followers.map(async flw => this.getApplierState(flw.endpoint)))
       let unfinished = result.filter(state => 

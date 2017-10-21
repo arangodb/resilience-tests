@@ -23,18 +23,6 @@ async function requestEndpoints(url) {
   return body.endpoints;
 };
 
-/*
-  async asyncReplicationMasterCon(db = '_system') {
-    const leader = await this.asyncReplicationLeaderInstance();    
-    return arangojs({ url: leader.endpoint, databaseName: db });
-  }
-
-  asyncReplicationCons(db = '_system') {
-    return this.singleServers().map(inst =>
-      arangojs({ url: endpointToUrl(inst.endpoint), databaseName: db }));
-  }
-*/
-
 describe('Synchronize tick values', async function() {
   const instanceManager = new InstanceManager('setup');
 
@@ -69,6 +57,9 @@ describe('Synchronize tick values', async function() {
     }
   }
 
+  // TODO add acutal checks for endpoints combined
+  // with health status from supervision. Problematic is the unclear
+  // delay between killing servers and a status update in Supervision/Health
   /*async function doHealthChecks(n, leader) {
     // wait at least 0.5s + 2.5s for agency supervision
     // to persist the health status
@@ -113,87 +104,169 @@ describe('Synchronize tick values', async function() {
     });
   }
 
-  for (let n = 3; n <= 9; n *= 2) {
-    it(`for ${n} servers with failover and leader restart`, async function() {
+  for (let n = 2; n <= 8; n *= 2) {
+    let f = n / 2;
+    it(`for ${n} servers with ${f} failover, leader restart`, async function() {
+      await instanceManager.startSingleServer('single', n);
+      await instanceManager.waitForAllInstances();
+  
+      // wait for leader selection
+      let uuid = await instanceManager.asyncReplicationLeaderSelected();
+      let leader = await instanceManager.asyncReplicationLeaderInstance();
+      for (; f > 0; f--) {
+        await doServerChecks(n, leader);
+        // leader should not change
+        expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+  
+        console.log('killing leader %s', leader.endpoint);    
+        await instanceManager.kill(leader);
+        let old = leader;
+    
+        uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
+        leader = await instanceManager.asyncReplicationLeaderInstance();
+        // checks expecting one server less
+        await doServerChecks(n - 1, leader);
+        
+        await instanceManager.restart(old);
+        console.log('killed instance restarted');
+      }
+    });
+  }
+  
+  for (let n = 2; n <= 8; n *= 2) { 
+    let f = n - 1;    
+    it(`for ${n} servers with ${f} failover, no restart`, async function() {
       await instanceManager.startSingleServer('single', n);
       await instanceManager.waitForAllInstances();
 
       // wait for leader selection
       let uuid = await instanceManager.asyncReplicationLeaderSelected();
       let leader = await instanceManager.asyncReplicationLeaderInstance();
-      await doServerChecks(n, leader);
-      // leader should not change
-      expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+      for (; f > 0; f--) {
+        await doServerChecks(n, leader);
+        // leader should not change
+        expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
 
-      console.log('killing leader %s', leader.endpoint);    
-      await instanceManager.kill(leader);
-      let old = leader;
-
-      uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
-      leader = await instanceManager.asyncReplicationLeaderInstance();
-      // checks expecting one server less
-      await doServerChecks(n - 1, leader);
-      
-      await instanceManager.restart(old);
-      console.log('killed instance restarted');
-
-      //checks with one more server
-      await doServerChecks(n, leader);
-
-      // leader should not change
-      expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+        console.log('killing leader %s', leader.endpoint);    
+        await instanceManager.kill(leader);
+    
+        uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
+        leader = await instanceManager.asyncReplicationLeaderInstance();
+        // checks expecting one server less
+        await doServerChecks(--n, leader);
+      }
     });
   }
 
-  let n = 8, f = 10;
-  it(`for ${n} servers with ${f} failovers and leader restart`, async function() {
-    await instanceManager.startSingleServer('single', n);
-    await instanceManager.waitForAllInstances();
+});
 
-    // wait for leader selection
-    let uuid = await instanceManager.asyncReplicationLeaderSelected();
-    let leader = await instanceManager.asyncReplicationLeaderInstance();
-    for (; f > 0; f--) {
-      await doServerChecks(n, leader);
-      // leader should not change
-      expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+describe('Replicating data', async function() {
+  const instanceManager = new InstanceManager('setup');
 
-      console.log('killing leader %s', leader.endpoint);    
-      await instanceManager.kill(leader);
-      let old = leader;
-  
-      uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
-      leader = await instanceManager.asyncReplicationLeaderInstance();
-      // checks expecting one server less
-      await doServerChecks(n - 1, leader);
-      
-      await instanceManager.restart(old);
-      console.log('killed instance restarted');
+  beforeEach(async function(){
+    await instanceManager.startAgency({agencySize:1});        
+  });
+
+  afterEach(function() {
+    instanceManager.moveServerLogs(this.currentTest);
+    return instanceManager.cleanup();
+  });
+
+  async function generateData(db, num) {
+    let coll = await db.collection("testcollection");
+    await coll.create();
+    return Promise.all(Array.apply(0, Array(num))
+          .map( (x, i) =>  i)
+          .map(i => coll.save({test:i})));
+  }
+
+  async function checkData(db, num) {
+    let cursor = await db.query(`FOR x IN testcollection 
+                                  SORT x.test ASC RETURN x`);
+    expect(cursor.hasNext()).to.equal(true);
+    let i = 0;
+    while (cursor.hasNext()) {
+      let doc = await cursor.next();
+      expect(doc.test).to.equal(i++);
     }
-  });//*/
-  
-  f = n - 1;
-  it(`for ${n} servers with ${f} failovers no restart`, async function() {
-    await instanceManager.startSingleServer('single', n);
-    await instanceManager.waitForAllInstances();
+    expect(i).to.equal(num);
+  }
 
-    // wait for leader selection
-    let uuid = await instanceManager.asyncReplicationLeaderSelected();
-    let leader = await instanceManager.asyncReplicationLeaderInstance();
-    for (; f > 0; f--) {
-      await doServerChecks(n, leader);
-      // leader should not change
-      expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
-
-      console.log('killing leader %s', leader.endpoint);    
-      await instanceManager.kill(leader);
-      let old = leader;
+  [100, 1000, 25000].forEach(numDocs => {
+    for (let n = 2; n <= 8; n *= 2) {
+      let f = n / 2;
+      it(`with ${n} servers, ${f} failover, leader restart ${numDocs}`, async function() {
+        await instanceManager.startSingleServer('single', n);
+        await instanceManager.waitForAllInstances();
   
-      uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
-      leader = await instanceManager.asyncReplicationLeaderInstance();
-      // checks expecting one server less
-      await doServerChecks(--n, leader);
+        // wait for leader selection
+        let uuid = await instanceManager.asyncReplicationLeaderSelected();
+        let leader = await instanceManager.asyncReplicationLeaderInstance();
+  
+        let db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
+        await generateData(db, numDocs);
+  
+        for (; f > 0; f--) {
+          console.log("Waiting for tick synchronization...");
+          const inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
+          expect(inSync).to.equal(true, "slaves did not get in sync before timeout");  
+  
+          // leader should not change
+          expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+  
+          console.log('killing leader %s', leader.endpoint);    
+          await instanceManager.kill(leader);
+          let old = leader;
+      
+          uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
+          leader = await instanceManager.asyncReplicationLeaderInstance();
+  
+          // we need to wait for the server to get out of maintenance mode
+          await sleep(250); // TODO do not use sleep here ?
+          db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
+          await checkData(db, numDocs);
+          
+          await instanceManager.restart(old);
+          console.log('killed instance restarted');
+        }
+      });
     }
   });
 
+  [100, 1000, 25000].forEach(numDocs => {
+    for (let n = 2; n <= 8; n *= 2) {
+      let f = n - 1;
+      it(`with ${n} servers, ${f} failover, no restart ${numDocs}`, async function() {
+        await instanceManager.startSingleServer('single', n);
+        await instanceManager.waitForAllInstances();
+  
+        // wait for leader selection
+        let uuid = await instanceManager.asyncReplicationLeaderSelected();
+        let leader = await instanceManager.asyncReplicationLeaderInstance();
+  
+        let db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
+        await generateData(db, numDocs);
+  
+        for (; f > 0; f--) {
+          console.log("Waiting for tick synchronization...");
+          const inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
+          expect(inSync).to.equal(true, "slaves did not get in sync before timeout");  
+  
+          // leader should not change
+          expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+  
+          console.log('killing leader %s', leader.endpoint);    
+          await instanceManager.kill(leader);
+      
+          uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
+          leader = await instanceManager.asyncReplicationLeaderInstance();
+  
+          // we need to wait for the server to get out of maintenance mode
+          await sleep(250); // TODO do not use sleep here ?
+          db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
+          await checkData(db, numDocs);
+        }
+      });
+    }
+  });
 });
