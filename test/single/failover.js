@@ -39,8 +39,8 @@ describe('Synchronize tick values', async function() {
   /// TODO check for redirects to leader
   async function doServerChecks(n, leader) {
     console.log("Waiting for tick synchronization...");
-    const inSync = await instanceManager.asyncReplicationTicksInSync();
-    expect(inSync).to.equal(true, "slaves did not get in sync before timeout");   
+    const inSync = await instanceManager.asyncReplicationTicksInSync(60.0);
+    expect(inSync).to.equal(true, "followers did not get in sync before timeout");   
 
     console.log("Checking endpoints...");
     /// make sure all servers know the leader
@@ -134,8 +134,8 @@ describe('Synchronize tick values', async function() {
   }
   
   for (let n = 2; n <= 8; n *= 2) { 
-    let f = n - 1;    
-    it(`for ${n} servers with ${f} failover, no restart`, async function() {
+    let f = n / 2;    
+    it.only(`for ${n} servers with ${f} failover, no restart`, async function() {
       await instanceManager.startSingleServer('single', n);
       await instanceManager.waitForAllInstances();
 
@@ -209,7 +209,7 @@ describe('Replicating data', async function() {
         for (; f > 0; f--) {
           console.log("Waiting for tick synchronization...");
           const inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
-          expect(inSync).to.equal(true, "slaves did not get in sync before timeout");  
+          expect(inSync).to.equal(true, "followers did not get in sync before timeout");  
   
           // leader should not change
           expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
@@ -250,7 +250,7 @@ describe('Replicating data', async function() {
         for (; f > 0; f--) {
           console.log("Waiting for tick synchronization...");
           const inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
-          expect(inSync).to.equal(true, "slaves did not get in sync before timeout");  
+          expect(inSync).to.equal(true, "followers did not get in sync before timeout");  
   
           // leader should not change
           expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
@@ -270,3 +270,4 @@ describe('Replicating data', async function() {
     }
   });
 });
+

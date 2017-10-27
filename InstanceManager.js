@@ -373,7 +373,7 @@ class InstanceManager {
   }
 
   /// Wait for servers to get in sync with leader
-  async asyncReplicationTicksInSync(timoutSecs = 30) {
+  async asyncReplicationTicksInSync(timoutSecs = 45.0) {
     let leader = await this.asyncReplicationLeaderInstance();
     const leaderTick = await this.lastWalTick(leader.endpoint);
     console.log("Leader Tick %s = %s", leader.endpoint, leaderTick);
