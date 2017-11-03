@@ -623,6 +623,30 @@ class InstanceManager {
     });
   }
 
+  // beware! signals are not supported on windows and it will simply do hard kills all the time
+  // send a STOP signal to halt an instance
+  sigstop(instance) {
+    if (!this.instances.includes(instance)) {
+      throw new Error("Couldn't find instance " + instance.name);
+    }
+
+    instance.process.kill('SIGSTOP');
+    instance.status = 'STOPPED';
+  }
+
+  sigcontinue(instance) {
+    if (!this.instances.includes(instance)) {
+      throw new Error("Couldn't find instance " + instance.name);
+    }
+
+    if (instance.status !== 'STOPPED') {
+      throw new Exception("trying to send SIGCONT to a process with status " + instance.status);
+    }
+    
+    instance.process.kill('SIGCONT');
+    instance.status = 'RUNNING';
+  }
+
   shutdown(instance) {
     if (instance.status == 'EXITED') {
       return Promise.resolve(instance);
