@@ -475,5 +475,44 @@ describe("Agency", function() {
           });
         });
     });
+    it("disaster recover an agent with existing id", function() {
+      function endpointToId(pool, endpoint) {
+        return Object.keys(pool)
+          .find(key => {
+            return pool[key] == endpoint;
+          })
+      }
+      
+      return instanceManager
+        .shutdown(followers[0])
+        .then(followerId => {
+          return rp({
+            url: endpointToUrl(leader.endpoint) + "/_api/agency/config",
+            json: true
+          })
+        })
+        .then(result => endpointToId(result.configuration.pool, followers[0].endpoint))
+        .then(followerId => {
+          return instanceManager.startAgent(followers[0].name, followerId);
+        })
+        .then(() => {
+          return waitForReintegration(instanceManager.instances[3].endpoint)
+            .then(() => {
+              return rp({
+                url: endpointToUrl(instanceManager.instances[3].endpoint) +
+                  "/_api/agency/config",
+                json: true
+              });
+            })
+            .then(result => {
+              expect(result.leaderId).to.not.be.empty;
+              expect(
+                result.configuration.pool[result.configuration.id]
+              ).to.equal(instanceManager.instances[3].endpoint);
+              return result.configuration.id;
+            });
+        })
+      
+    });
   });
 });

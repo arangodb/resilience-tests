@@ -202,6 +202,27 @@ class InstanceManager {
       });
   }
 
+  startAgent(name, id) {
+    this.agent++;
+    return this.runner
+      .createEndpoint()
+      .then(endpoint => {
+        let args = [
+          '--agency.endpoint=' + this.getAgencyEndpoint(),
+          '--agency.activate=true',
+          '--agency.disaster-recovery-id=' + id,
+          '--agency.size=3',
+          '--log.level=requests=trace',
+          '--agency.my-address=' + endpoint
+        ];
+        return this.startArango(name, endpoint, 'agent', args);
+      })
+      .then(instance => {
+        this.instances.push(instance);
+        return instance;
+      });
+  }
+
   replace(instance) {
     let name, role;
     switch (instance.role) {
@@ -484,6 +505,7 @@ class InstanceManager {
       return this.runner.updateEndpoint(instance, endpoint);
     });
   }
+
 
   // beware! signals are not supported on windows and it will simply do hard kills all the time
   // use shutdown to gracefully stop an instance!
