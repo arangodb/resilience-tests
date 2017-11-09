@@ -6,15 +6,14 @@ const ip = require('ip');
 function startInstance(instance) {
   instance.port = portFromEndpoint(instance.endpoint);
   return new Promise((resolve, reject) => {
-    let process = spawn(instance.binary, instance.args);
+    const process = spawn(instance.binary, instance.args);
 
-    process.stdout.on('data', data => {
-      data.toString().split('\n').forEach(instance.logFn);
-    });
+    process.stdout.on('data', data =>
+      data.toString().split('\n').forEach(instance.logFn));
 
-    process.stderr.on('data', data => {
-      data.toString().split('\n').forEach(instance.logFn);
-    });
+    process.stderr.on('data', data =>
+      data.toString().split('\n').forEach(instance.logFn));
+
     process.on('exit', code => {
       instance.status = 'EXITED';
       instance.exitcode = code;
@@ -78,8 +77,31 @@ const endpointToUrl = function(endpoint) {
   return 'http' + endpoint.substr(pos);
 };
 
+const compareTicks = function(l, r) {
+  var i;
+  if (l === null) {
+    l = "0";
+  }
+  if (r === null) {
+    r = "0";
+  }
+  if (l.length !== r.length) {
+    return l.length - r.length < 0 ? -1 : 1;
+  }
+
+  // length is equal
+  for (i = 0; i < l.length; ++i) {
+    if (l[i] !== r[i]) {
+      return l[i] < r[i] ? -1 : 1;
+    }
+  }
+
+  return 0;
+};
+
 exports.endpointToUrl = endpointToUrl;
 exports.portFromEndpoint = portFromEndpoint;
 exports.createEndpoint = createEndpoint;
 exports.startInstance = startInstance;
 exports.findFreePort = findFreePort;
+exports.compareTicks = compareTicks;

@@ -17,19 +17,19 @@ class LocalRunner {
   }
 
   firstStart(instance) {
-    let dir = path.join(this.rootDir, instance.name);
-    let dataDir = path.join(dir, "data");
-    let appsDir = path.join(dir, "apps");
+    const dir = path.join(this.rootDir, instance.name);
+    const dataDir = path.join(dir, 'data');
+    const appsDir = path.join(dir, 'apps');
 
-    instance.args.unshift("--configuration=none");
-    instance.args.push(
-      "--javascript.startup-directory=" + path.join(this.basePath, "js")
-    );
-    instance.args.push("--javascript.app-path=" + appsDir);
-    instance.args.push("--server.endpoint=" + instance.endpoint);
-    instance.args.push(dataDir);
+    instance.args.unshift('--configuration=none');
+    instance.args.push(...[
+      `--javascript.startup-directory=${path.join(this.basePath, 'js')}`,
+      `--javascript.app-path=${appsDir}`,
+      `--server.endpoint=${instance.endpoint}`,
+      dataDir
+    ]);
 
-    let arangod = path.join(this.basePath, "build", "bin", "arangod");
+    const arangod = path.join(this.basePath, "build", "bin", "arangod");
     if (process.env.RESILIENCE_ARANGO_WRAPPER) {
       let wrapper = process.env.RESILIENCE_ARANGO_WRAPPER.split(" ");
       instance.binary = wrapper.shift();

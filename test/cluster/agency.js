@@ -1,7 +1,7 @@
 /* global describe, it, beforeEach, afterEach */
 "use strict";
-const InstanceManager = require("../InstanceManager.js");
-const endpointToUrl = require("../common.js").endpointToUrl;
+const InstanceManager = require("../../InstanceManager.js");
+const endpointToUrl = require("../../common.js").endpointToUrl;
 
 const expect = require("chai").expect;
 const rp = require("request-promise");

@@ -1,14 +1,14 @@
 'use strict';
 const _ = require('lodash');
+const arangojs = require('arangojs');
 const rp = require('request-promise');
 const LocalRunner = require('./LocalRunner.js');
 const DockerRunner = require('./DockerRunner.js');
-const endpointToUrl = require('./common.js').endpointToUrl;
+const common = require('./common.js');
+const endpointToUrl = common.endpointToUrl;
 const WAIT_TIMEOUT = 400; // seconds
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(() => resolve(), ms));
-}
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 class InstanceManager {
   constructor(name) {
@@ -38,6 +38,7 @@ class InstanceManager {
     this.agentCounter = 0;
     this.coordinatorCounter = 0;
     this.dbServerCounter = 0;
+    this.singleServerCounter = 0;
   }
 
   async rpAgency(o) {
@@ -115,25 +116,25 @@ class InstanceManager {
     args.push('--server.authentication=false');
     //args.push('--log.level=v8=debug')
 
-    if (process.env.LOG_COMMUNICATION && process.env.LOG_COMMUNICATION !== "") {
-        args.push('--log.level=communication=' + process.env.LOG_COMMUNICATION);
+    if (process.env.LOG_COMMUNICATION && process.env.LOG_COMMUNICATION !== '') {
+        args.push(`--log.level=communication=${process.env.LOG_COMMUNICATION}`);
     }
 
-    if (process.env.LOG_REQUESTS && process.env.LOG_REQUESTS !== "") {
-        args.push('--log.level=requests=' + process.env.LOG_REQUESTS);
+    if (process.env.LOG_REQUESTS && process.env.LOG_REQUESTS !== '') {
+        args.push(`--log.level=requests=${process.env.LOG_REQUESTS}`);
     }
 
-    if (process.env.LOG_AGENCY && process.env.LOG_AGENCY !== "") {
-        args.push('--log.level=agency=' + process.env.LOG_AGENCY);
+    if (process.env.LOG_AGENCY && process.env.LOG_AGENCY !== '') {
+        args.push(`--log.level=agency=${process.env.LOG_AGENCY}`);
     }
 
-    args.push('--server.storage-engine=' + this.storageEngine);
+    args.push(`--server.storage-engine=${this.storageEngine}`);
 
     if (process.env.ARANGO_EXTRA_ARGS) {
-      args = args.concat(process.env.ARANGO_EXTRA_ARGS.split(' '));
+      args.push(...process.env.ARANGO_EXTRA_ARGS.split(' '));
     }
 
-    let instance = {
+    const instance = {
       name,
       role,
       process: null,
@@ -144,7 +145,8 @@ class InstanceManager {
       logFn: line => {
         if (line.trim().length > 0) {
           let logLine =
-            instance.name + '(' + instance.process.pid + '): \t' + line;
+            `${instance.name}(${instance.process.pid}): \t${line}`;
+
           if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
             console.log(logLine);
           } else {
@@ -157,16 +159,33 @@ class InstanceManager {
     return this.runner.firstStart(instance);
   }
 
+  async startSingleServer(nameIn, num = 1) {
+    const newInst = [];
+    for (let i = 0; i < num; i++) {
+      const name = `${nameIn}-${++this.singleServerCounter}`;
+      const ep = await this.runner.createEndpoint();
+      const inst = await this.startArango(name, ep,
+        'single', [
+          `--cluster.agency-endpoint=${this.getAgencyEndpoint()}`,
+          `--cluster.my-role=SINGLE`,
+          `--cluster.my-address=${ep}`,
+          `--replication.automatic-failover=true`
+      ]);
+      this.instances.push(inst);
+      newInst.push(inst);
+    }
+    return newInst;
+  }
+
   startDbServer(name) {
     this.dbServerCounter++;
     return this.runner
       .createEndpoint()
       .then(endpoint => {
-        let args = [
-          '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
-          '--cluster.my-role=PRIMARY',
-          '--cluster.my-local-info=' + name,
-          '--cluster.my-address=' + endpoint
+        const args = [
+          `--cluster.agency-endpoint=${this.getAgencyEndpoint()}`,
+          `--cluster.my-role=PRIMARY`,
+          `--cluster.my-address=${endpoint}`
         ];
         return this.startArango(name, endpoint, 'primary', args);
       })
@@ -190,7 +209,6 @@ class InstanceManager {
         let args = [
           '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
           '--cluster.my-role=COORDINATOR',
-          '--cluster.my-local-info=' + name,
           '--cluster.my-address=' + endpoint,
           '--log.level=requests=trace'
         ];
@@ -224,7 +242,6 @@ class InstanceManager {
     let args = [
       '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
       '--cluster.my-role=' + role,
-      '--cluster.my-local-info=' + name,
       '--cluster.my-address=' + instance.endpoint
     ];
     return this.startArango(name, instance.endpoint, instance.role, args)
@@ -235,13 +252,13 @@ class InstanceManager {
       });
   }
 
-  startAgency(options = {}) {
+  async startAgency(options = {}) {
     let size = options.agencySize || 1;
     if (options.agencyWaitForSync === undefined) {
       options.agencyWaitForSync = false;
     }
     const wfs = options.agencyWaitForSync;
-    let promise = Promise.resolve([]);
+    const instances = [];
     let compactionStep = "200";
     let compactionKeep = "100";
     if (process.env.AGENCY_COMPACTION_STEP) {
@@ -251,11 +268,10 @@ class InstanceManager {
       compactionKeep = process.env.AGENCY_COMPACTION_KEEP;
     }
     for (var i = 0; i < size; i++) {
-      promise = promise.then(instances => {
-        return this.runner
+      instances.push(await this.runner
           .createEndpoint()
           .then(endpoint => {
-            let args = [
+            const args = [
               '--agency.activate=true',
               '--agency.size=' + size,
               '--agency.pool-size=' + size,
@@ -266,13 +282,11 @@ class InstanceManager {
               '--agency.supervision-grace-period=2.5',
               '--agency.compaction-step-size='+compactionStep,
               '--agency.compaction-keep-size='+compactionKeep,
-              '--agency.my-address=' + endpoint
+              '--agency.my-address=' + endpoint,
+              instances.length ?
+                `--agency.endpoint=${instances[0].endpoint}` : `--agency.endpoint=${endpoint}`
             ];
-            if (instances.length === 0) {
-              args.push('--agency.endpoint=' + endpoint);
-            } else {
-              args.push('--agency.endpoint=' + instances[0].endpoint);
-            }
+
             this.agentCounter++;
             return this.startArango(
               'agency-' + this.agentCounter,
@@ -280,18 +294,109 @@ class InstanceManager {
               'agent',
               args
             );
-          })
-          .then(instance => {
-            return [...instances, instance];
-          });
-      });
+          }));
     }
-    return promise.then(agents => {
-      this.instances = agents;
-      return agents;
-    });
+    return this.instances = instances;
   }
 
+  /// Lookup the async failover leader in agency
+  async asyncReplicationLeaderId() {
+    const baseUrl = endpointToUrl(this.getAgencyEndpoint());
+
+    let body;
+    try {
+      body = await rp({
+        method: 'POST', json: true,
+        uri: `${baseUrl}/_api/agency/read`,
+        followAllRedirects: true,      
+        body: [['/arango/Plan']]
+      });
+    } catch(e) {
+      return null;
+    }
+    
+    const leader = body[0].arango.Plan.AsyncReplication.Leader;
+    if (!leader) {
+      return null;
+    }
+    const servers = Object.keys(body[0].arango.Plan.Singles);
+    if (-1 === servers.indexOf(leader)) {
+      throw new Error(`AsyncReplication: Leader ${leader} not one of single servers`);
+    }
+
+    let singles = this.singleServers();
+    if (servers.length !== singles.length) {
+      throw new Error(`AsyncReplication: Requested ${numServers}, but ${servers.length} ready`);
+    }
+    return leader;
+  }
+
+  /// wait for leader selection
+  async asyncReplicationLeaderSelected(ignore = null) {
+    let i = 100;
+    while (i-- > 0) {
+      let val = await this.asyncReplicationLeaderId();
+      if (val !== null && ignore !== val) {
+        return val;
+      }
+      await sleep(100);
+    }
+    throw new Error("Timout waiting for leader selection");
+  }
+
+  /// look into the agency and return the master instance
+  /// assumes leader is in agency, does not try again
+  async asyncReplicationLeaderInstance() {
+    const uuid = await this.asyncReplicationLeaderId();
+    if (uuid == null) {
+      throw "leader is not in agency";
+    }
+    console.log("Leader in agency %s", uuid)
+    let instance = await this.resolveUUID(uuid);
+    if (!instance) {
+      throw new Error("Could not find leader instance locally");
+    }
+    return instance;
+  }
+
+  async lastWalTick(url) {
+    url = endpointToUrl(url);    
+    const body = await rp.get({json: true, uri: `${url}/_api/wal/lastTick`});
+    return body.tick;
+  }
+
+  /// Wait for servers to get in sync
+  async getApplierState(url) {
+    url = endpointToUrl(url);
+    const body = await rp.get({json: true, uri:`${url}/_api/replication/applier-state?global=true`});
+    return body.state;
+  }
+
+  /// Wait for servers to get in sync with leader
+  async asyncReplicationTicksInSync(timoutSecs = 45.0) {
+    let leader = await this.asyncReplicationLeaderInstance();
+    const leaderTick = await this.lastWalTick(leader.endpoint);
+    console.log("Leader Tick %s = %s", leader.endpoint, leaderTick);
+    let followers = this.singleServers().filter(inst => inst.status === 'RUNNING' && 
+                                                        inst.endpoint != leader.endpoint);      
+
+    let tttt = Math.ceil(timoutSecs * 2);
+    for (let i = 0; i < tttt; i++) {
+      const result = await Promise.all(followers.map(async flw => this.getApplierState(flw.endpoint)))
+      let unfinished = result.filter(state => 
+        common.compareTicks(state.lastProcessedContinuousTick, leaderTick) == -1
+      );
+      if (unfinished.length == 0) {
+        return true;
+      } 
+      await sleep(500); // 0.5s
+      if (i % 2 == 0 && i > tttt / 2) {
+        console.log("Unfinished state: %s", JSON.stringify(unfinished));
+      }
+    }
+    return false;
+  }
+  
   findPrimaryDbServer(collectionName) {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
     return this.rpAgency({
@@ -351,7 +456,7 @@ class InstanceManager {
         ).map(index => {
           return this.startCoordinator('coordinator-' + (index + 1));
         });
-        return Promise.all([].concat(coordinators, dbServers));
+        return Promise.all([...coordinators, ...dbServers]);
       })
       .then(servers => {
         return this.waitForAllInstances();
@@ -373,8 +478,7 @@ class InstanceManager {
 
     let ok = false;
     try {
-      await rp({
-        method: 'GET',
+      await rp.get({
         uri: endpointToUrl(instance.endpoint) + '/_api/version'
       });
       ok = true;
@@ -410,9 +514,7 @@ class InstanceManager {
   }
 
   shutdownCluster() {
-    let shutdownPromise;
-
-    let nonAgents = [].concat(this.coordinators(), this.dbServers());
+    const nonAgents = [...this.coordinators(), ...this.dbServers(), ...this.singleServers()];
 
     return Promise.all(nonAgents.map(this.shutdown.bind(this)))
     .then(() => {
@@ -427,6 +529,7 @@ class InstanceManager {
         this.agentCounter = 0;
         this.coordinatorCounter = 0;
         this.dbServerCounter = 0;
+        this.singleServerCounter = 0;
         return this.runner.cleanup();
       })
       .then(() => {
@@ -437,20 +540,34 @@ class InstanceManager {
   }
 
   dbServers() {
-    return this.instances.filter(instance => {
-      return instance.role === 'primary';
-    });
+    return this.instances.filter(instance => instance.role === 'primary');
   }
 
   coordinators() {
-    return this.instances.filter(instance => {
-      return instance.role === 'coordinator';
-    });
+    return this.instances.filter(instance => instance.role === 'coordinator');
   }
 
   agents() {
-    return this.instances.filter(instance => {
-      return instance.role === 'agent';
+    return this.instances.filter(instance => instance.role === 'agent');
+  }
+
+  singleServers() {
+    return this.instances.filter(inst => inst.role === 'single');
+  }
+
+  /// use Current/ServersRegistered to find the corresponding
+  /// instance metadata
+  resolveUUID(uuid) {
+    const baseUrl = endpointToUrl(this.getAgencyEndpoint());
+    return this.rpAgency({
+      method: 'POST',
+      uri: baseUrl + '/_api/agency/read',
+      json: true,
+      body: [['/arango/Current/ServersRegistered']]
+    }).then(([info]) => {
+      const servers = info.arango.Current.ServersRegistered;
+      let url = servers[uuid].endpoint;
+      return this.instances.filter(inst => inst.endpoint == url).shift();
     });
   }
 
@@ -495,7 +612,7 @@ class InstanceManager {
     instance.process.kill('SIGKILL');
     instance.status = 'KILLED';
     return new Promise((resolve, reject) => {
-      let check = function() {
+      const check = () => {
         if (instance.status !== 'EXITED') {
           setTimeout(check, 50);
         } else {
@@ -504,6 +621,30 @@ class InstanceManager {
       };
       check();
     });
+  }
+
+  // beware! signals are not supported on windows and it will simply do hard kills all the time
+  // send a STOP signal to halt an instance
+  sigstop(instance) {
+    if (!this.instances.includes(instance)) {
+      throw new Error("Couldn't find instance " + instance.name);
+    }
+
+    instance.process.kill('SIGSTOP');
+    instance.status = 'STOPPED';
+  }
+
+  sigcontinue(instance) {
+    if (!this.instances.includes(instance)) {
+      throw new Error("Couldn't find instance " + instance.name);
+    }
+
+    if (instance.status !== 'STOPPED') {
+      throw new Exception("trying to send SIGCONT to a process with status " + instance.status);
+    }
+    
+    instance.process.kill('SIGCONT');
+    instance.status = 'RUNNING';
   }
 
   shutdown(instance) {
@@ -582,12 +723,9 @@ class InstanceManager {
       promise = Promise.resolve();
     }
     return promise.then(() => this.runner.destroy(instance)).then(() => {
-      const i = this.instances.indexOf(instance);
-      if (i !== -1) {
-        this.instances = [
-          ...this.instances.slice(0, i),
-          ...this.instances.slice(i + 1)
-        ];
+      const idx = this.instances.indexOf(instance);
+      if (idx !== -1) {
+        this.instances.splice(idx, 1);
       }
     });
   }
