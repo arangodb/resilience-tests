@@ -8,10 +8,10 @@ const expect = require('chai').expect;
 
 const noop = () => {};
 const service1 = readFileSync(
-  join(__dirname, '..', 'fixtures', 'service1.zip')
+  join(__dirname, '..', '..', 'fixtures', 'service1.zip')
 );
 const service2 = readFileSync(
-  join(__dirname, '..', 'fixtures', 'service2.zip')
+  join(__dirname, '..', '..', 'fixtures', 'service2.zip')
 );
 
 describe('Foxx service', function() {

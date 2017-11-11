@@ -7,8 +7,8 @@ const arangojs = require('arangojs');
 const expect = require('chai').expect;
 
 const noop = () => {};
-const service1 = readFileSync(join(__dirname, '..', 'fixtures', 'service1.zip'));
-const service2 = readFileSync(join(__dirname, '..', 'fixtures', 'service2.zip'));
+const service1 = readFileSync(join(__dirname, '..', '..', 'fixtures', 'service1.zip'));
+const service2 = readFileSync(join(__dirname, '..', '..', 'fixtures', 'service2.zip'));
 
 describe('Foxx service', function () {
   const im = new InstanceManager();
