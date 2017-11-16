@@ -53,7 +53,7 @@ describe('Synchronize tick values', async function() {
       //  TODO check location header on other APIs
 
       let list = await requestEndpoints(servers[x].endpoint);
-      expect(leader.endpoint).to.equal(list[0]);
+      expect(leader.endpoint).to.equal(list[0].endpoint);
     }
   }
 
