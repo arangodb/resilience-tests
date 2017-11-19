@@ -333,7 +333,7 @@ class InstanceManager {
 
   /// wait for leader selection
   async asyncReplicationLeaderSelected(ignore = null) {
-    let i = 100;
+    let i = 200;
     while (i-- > 0) {
       let val = await this.asyncReplicationLeaderId();
       if (val !== null && ignore !== val) {
