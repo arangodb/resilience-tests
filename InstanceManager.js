@@ -6,6 +6,7 @@ const LocalRunner = require('./LocalRunner.js');
 const DockerRunner = require('./DockerRunner.js');
 const common = require('./common.js');
 const endpointToUrl = common.endpointToUrl;
+const ERR_IN_SHUTDOWN = 30;
 const WAIT_TIMEOUT = 400; // seconds
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -468,7 +469,7 @@ class InstanceManager {
 
   async waitForInstance(instance, started = Date.now()) {
     if (instance.status !== 'RUNNING') {
-      throw new Error(`Instance ${instance.name} is down!`);
+      throw new Error(`Instance ${instance.name} is down! Real status ${instance.status}`);
     }
     if (Date.now() - started > WAIT_TIMEOUT * 1000) {
       throw new Error(
@@ -664,28 +665,38 @@ class InstanceManager {
                                   // has a 120s timeout
         let waitInterval = 50;
         (function innerCheckDown() {
-          if (instance.status == 'EXITED') {
-            if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-              console.log((new Date()).toISOString()
-                + " innerCheckDown resolve for " + instance.name);
+          try {
+            if (instance.status == 'EXITED') {
+              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+                console.log((new Date()).toISOString()
+                  + " innerCheckDown resolve for " + instance.name);
+              }
+              resolve(instance);
+            } else if (++attempts === killAttempts) {
+              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+                console.log((new Date()).toISOString()
+                  + " innerCheckDown: killed" + instance.name);
+              }
+              instance.process.kill('SIGKILL');
+              instance.status = 'KILLED';
+              setTimeout(innerCheckDown, waitInterval);
+            } else if (attempts > maxAttempts) {
+              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+                console.log((new Date()).toISOString()
+                  + " innerCheckDown reject for " + instance.name);
+              }
+              reject(new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms'));
+            } else {
+              setTimeout(innerCheckDown, waitInterval);
             }
-            resolve(instance);
-          } else if (++attempts === killAttempts) {
-            if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-              console.log((new Date()).toISOString()
-                + " innerCheckDown: killed" + instance.name);
+          } catch (err) {
+            if (err.errorNum == 30) {
+              // Shutdown is ongoing this is expected.
+              // Everything else needs to be reported
+              setTimeout(innerCheckDown, waitInterval);
+            } else {
+              reject(err);
             }
-            instance.process.kill('SIGKILL');
-            instance.status = 'KILLED';
-            setTimeout(innerCheckDown, waitInterval);
-          } else if (attempts > maxAttempts) {
-            if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-              console.log((new Date()).toISOString()
-                + " innerCheckDown reject for " + instance.name);
-            }
-            reject(new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms'));
-          } else {
-            setTimeout(innerCheckDown, waitInterval);
           }
         })();
       });
@@ -696,13 +707,16 @@ class InstanceManager {
     })
     .catch(err => {
       if (err && (err.statusCode === 503 || err.error)) {
-        if (err.error.code == 'ECONNREFUSED') {
+        let errObj = (err.error instanceof String) ? JSON.parse(err.error) : err.error;
+        if (errObj.code == 'ECONNREFUSED') {
           console.warn('hmmm...server ' + instance.name + ' did not respond (' + err.code + '). Assuming it is dead. Status is: ' + instance.status);
           return checkDown();
-        } else if (err.error.code == 'ECONNRESET') {
+        } else if (errObj.code == 'ECONNRESET') {
           return checkDown();
         } else if (err.statusCode === 503) {
           console.warn('server ' + instance.name + ' answered 503. Assuming it is shutting down. Status is: ' + instance.status);
+          return checkDown();
+        } else if (errObj.errorNum === ERR_IN_SHUTDOWN) {
           return checkDown();
         }
       }
