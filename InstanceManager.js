@@ -8,6 +8,16 @@ const common = require('./common.js');
 const endpointToUrl = common.endpointToUrl;
 const ERR_IN_SHUTDOWN = 30;
 const WAIT_TIMEOUT = 400; // seconds
+const debugLog = (logLine) => {
+  if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+    console.log((new Date()).toISOString(), logLine);
+  };
+};
+
+const shutdownKillAttempts = 3600;  // 180s, after this time we kill the instance
+const shutdownMaxAttempts = 4000;   // 200s, note that the cluster internally
+                                    // has a 120s timeout
+const shutdownWaitInterval = 50;    // We check every 50ms if a server is down
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -178,22 +188,17 @@ class InstanceManager {
     return newInst;
   }
 
-  startDbServer(name) {
+  async startDbServer(name) {
     this.dbServerCounter++;
-    return this.runner
-      .createEndpoint()
-      .then(endpoint => {
-        const args = [
-          `--cluster.agency-endpoint=${this.getAgencyEndpoint()}`,
-          `--cluster.my-role=PRIMARY`,
-          `--cluster.my-address=${endpoint}`
-        ];
-        return this.startArango(name, endpoint, 'primary', args);
-      })
-      .then(instance => {
-        this.instances.push(instance);
-        return instance;
-      });
+    const endpoint = await this.runner.createEndpoint();
+    const args = [
+      `--cluster.agency-endpoint=${this.getAgencyEndpoint()}`,
+      `--cluster.my-role=PRIMARY`,
+      `--cluster.my-address=${endpoint}`
+    ];
+    const instance = await this.startArango(name, endpoint, 'primary', args);
+    this.instances.push(instance);
+    return instance;
   }
 
   getAgencyEndpoint() {
@@ -202,26 +207,21 @@ class InstanceManager {
     })[0].endpoint;
   }
 
-  startCoordinator(name) {
+  async startCoordinator(name) {
     this.coordinatorCounter++;
-    return this.runner
-      .createEndpoint()
-      .then(endpoint => {
-        let args = [
-          '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
-          '--cluster.my-role=COORDINATOR',
-          '--cluster.my-address=' + endpoint,
-          '--log.level=requests=trace'
-        ];
-        return this.startArango(name, endpoint, 'coordinator', args);
-      })
-      .then(instance => {
-        this.instances.push(instance);
-        return instance;
-      });
+    const endpoint = await this.runner.createEndpoint();
+    const args = [
+      '--cluster.agency-endpoint=' + this.getAgencyEndpoint(),
+      '--cluster.my-role=COORDINATOR',
+      '--cluster.my-address=' + endpoint,
+      '--log.level=requests=trace'
+    ];
+    const instance = await this.startArango(name, endpoint, 'coordinator', args);
+    this.instances.push(instance);
+    return instance;
   }
 
-  replace(instance) {
+  async replace(instance) {
     let name, role;
     switch (instance.role) {
       case 'coordinator':
@@ -245,15 +245,14 @@ class InstanceManager {
       '--cluster.my-role=' + role,
       '--cluster.my-address=' + instance.endpoint
     ];
-    return this.startArango(name, instance.endpoint, instance.role, args)
-      .then(instance => this.waitForInstance(instance))
-      .then(instance => {
-        this.instances.push(instance);
-        return instance;
-      });
+    instance = await this.startArango(name, instance.endpoint, instance.role, args);
+    await this.waitForInstance(instance);
+    this.instances.push(instance);
+    return instance;
   }
 
   async startAgency(options = {}) {
+    debugLog("starting agencies");
     let size = options.agencySize || 1;
     if (options.agencyWaitForSync === undefined) {
       options.agencyWaitForSync = false;
@@ -269,33 +268,31 @@ class InstanceManager {
       compactionKeep = process.env.AGENCY_COMPACTION_KEEP;
     }
     for (var i = 0; i < size; i++) {
-      instances.push(await this.runner
-          .createEndpoint()
-          .then(endpoint => {
-            const args = [
-              '--agency.activate=true',
-              '--agency.size=' + size,
-              '--agency.pool-size=' + size,
-              '--agency.wait-for-sync=true',
-              '--agency.supervision=true',
-              '--server.threads=16',
-              '--agency.supervision-frequency=0.5',
-              '--agency.supervision-grace-period=2.5',
-              '--agency.compaction-step-size='+compactionStep,
-              '--agency.compaction-keep-size='+compactionKeep,
-              '--agency.my-address=' + endpoint,
-              instances.length ?
-                `--agency.endpoint=${instances[0].endpoint}` : `--agency.endpoint=${endpoint}`
-            ];
-
-            this.agentCounter++;
-            return this.startArango(
-              'agency-' + this.agentCounter,
-              endpoint,
-              'agent',
-              args
-            );
-          }));
+      const endpoint = await this.runner.createEndpoint();
+      const args = [
+        '--agency.activate=true',
+        '--agency.size=' + size,
+        '--agency.pool-size=' + size,
+        '--agency.wait-for-sync=true',
+        '--agency.supervision=true',
+        '--server.threads=16',
+        '--agency.supervision-frequency=0.5',
+        '--agency.supervision-grace-period=2.5',
+        '--agency.compaction-step-size='+compactionStep,
+        '--agency.compaction-keep-size='+compactionKeep,
+        '--agency.my-address=' + endpoint,
+        instances.length ?
+          `--agency.endpoint=${instances[0].endpoint}` : `--agency.endpoint=${endpoint}`
+      ];
+      this.agentCounter++;
+      debugLog("booting agency");
+      const instance = await this.startArango(
+        'agency-' + this.agentCounter,
+        endpoint,
+        'agent',
+        args
+      );
+      instances.push(instance);
     }
     return this.instances = instances;
   }
@@ -398,9 +395,9 @@ class InstanceManager {
     return false;
   }
   
-  findPrimaryDbServer(collectionName) {
+  async findPrimaryDbServer(collectionName) {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
-    return this.rpAgency({
+    let [info] = await this.rpAgency({
       method: 'POST',
       uri: baseUrl + '/_api/agency/read',
       json: true,
@@ -410,94 +407,103 @@ class InstanceManager {
           '/arango/Current/ServersRegistered'
         ]
       ]
-    }).then(([info]) => {
-      const collections = info.arango.Plan.Collections._system;
-      const servers = info.arango.Current.ServersRegistered;
-      for (const id of Object.keys(collections)) {
-        const collection = collections[id];
-        if (collection.name !== collectionName) {
-          continue;
-        }
-        const shards = collection.shards;
-        const shardsId = Object.keys(shards)[0];
-        const uuid = shards[shardsId][0];
-        const endpoint = servers[uuid].endpoint;
-        const dbServers = this.dbServers().filter(
-          instance => instance.endpoint === endpoint
-        );
-        if (!dbServers.length) {
-          return Promise.reject(new Error(`Unknown endpoint "${endpoint}"`));
-        }
-        return dbServers[0];
-      }
-      return Promise.reject(
-        new Error(`Unknown collection "${collectionName}"`)
-      );
     });
+
+    const collections = info.arango.Plan.Collections._system;
+    const servers = info.arango.Current.ServersRegistered;
+    for (const id of Object.keys(collections)) {
+      const collection = collections[id];
+      if (collection.name !== collectionName) {
+        continue;
+      }
+      const shards = collection.shards;
+      const shardsId = Object.keys(shards)[0];
+      const uuid = shards[shardsId][0];
+      const endpoint = servers[uuid].endpoint;
+      const dbServers = this.dbServers().filter(
+        instance => instance.endpoint === endpoint
+      );
+      if (dbServers.length === 0) {
+        throw new Error(`Unknown endpoint "${endpoint}"`);
+      }
+      return dbServers[0];
+    }
+    throw new Error(`Unknown collection "${collectionName}"`);
   }
 
-  startCluster(numAgents, numCoordinators, numDbServers, options = {}) {
+  async startCluster(numAgents, numCoordinators, numDbServers, options = {}) {
     let agencyOptions = options.agents || {};
     _.extend(agencyOptions, {agencySize: numAgents});
 
-    return this.startAgency(agencyOptions)
-      .then(agents => { return new Promise.delay(2000, agents); })
-      .then(agents => {
-        let promises = [Promise.resolve(agents)];
+    debugLog(`Starting cluster A:${numAgents} C:${numCoordinators} D:${numDbServers}`);
+    debugLog("booting agents...");
 
-        let dbServers = Array.from(Array(numDbServers).keys()).map(index => {
-          return this.startDbServer('dbServer-' + (index + 1));
-        });
-        return Promise.all(dbServers);
-      })
-      .then(dbServers => { return new Promise.delay(2000, dbServers); })
-      .then(dbServers => {
-        let coordinators = Array.from(
-          Array(numCoordinators).keys()
-        ).map(index => {
-          return this.startCoordinator('coordinator-' + (index + 1));
-        });
-        return Promise.all([...coordinators, ...dbServers]);
-      })
-      .then(servers => {
-        return this.waitForAllInstances();
-      })
-      .then(() => {
-        return this.getEndpoint();
-      });
+    let agents = await this.startAgency(agencyOptions);
+    debugLog("all agents are booted");
+
+    await sleep(2000);
+    let dbServers = Array.from(Array(numDbServers).keys()).map(index => {
+      return this.startDbServer('dbServer-' + (index + 1));
+    });
+
+    debugLog("booting DBServers...");
+    await Promise.all(dbServers);
+    debugLog("all DBServers are booted");
+    await sleep(2000);
+
+    let coordinators = Array.from(
+      Array(numCoordinators).keys()
+    ).map(index => {
+      return this.startCoordinator('coordinator-' + (index + 1));
+    });
+    debugLog("booting Coordinators...");
+    await Promise.all(coordinators);
+    debugLog("all Coordinators are booted");
+
+    debugLog("waiting for /_api/version to succeed an all servers");
+    await this.waitForAllInstances();
+    debugLog("Cluster is up and running");
+
+    return this.getEndpoint();
   }
 
   async waitForInstance(instance, started = Date.now()) {
-    if (instance.status !== 'RUNNING') {
-      throw new Error(`Instance ${instance.name} is down! Real status ${instance.status}`);
-    }
-    if (Date.now() - started > WAIT_TIMEOUT * 1000) {
-      throw new Error(
-        `Instance ${instance.name} is still not ready after ${WAIT_TIMEOUT} secs`
-      );
-    }
+    while (true) {
+      if (instance.status !== 'RUNNING') {
+        throw new Error(`
+          Instance ${instance.name} is down!
+          Real status ${instance.status} with exitcode ${instance.exitcode}.
+          See logfile here ${instance.logFile}`);
+      }
+     
+      let _test_ = Date.now() - started;
+      
+      if (_test_ > WAIT_TIMEOUT * 1000) {
+        console.error("Hass", _test_, WAIT_TIMEOUT * 1000, started, Date.now());
+        throw new Error(
+          `Instance ${instance.name} is still not ready after ${WAIT_TIMEOUT} secs`
+        );
+      }
 
-    let ok = false;
-    try {
-      await rp.get({
-        uri: endpointToUrl(instance.endpoint) + '/_api/version'
-      });
-      ok = true;
-    } catch (e) {}
-    if (ok) {
-      return instance;
-    } else {
+      let ok = false;
+      try {
+        await rp.get({
+          uri: endpointToUrl(instance.endpoint) + '/_api/version'
+        });
+        return instance;
+      } catch (e) {}
+      // Wait 100 ms and try again
       await sleep(100);
-      return this.waitForInstance(instance, started);
     }
   }
 
-  waitForAllInstances() {
-    return Promise.all(
-      this.instances.map(instance => {
-        return this.waitForInstance(instance);
-      })
-    );
+  async waitForAllInstances() {
+    let allWaiters = this.instances.map(instance => this.waitForInstance(instance));
+    let results = [];
+    for (let waiter of allWaiters) {
+      results.push(await waiter);
+    }
+    return results;
   }
 
   getEndpoint(instance) {
@@ -514,30 +520,31 @@ class InstanceManager {
     });
   }
 
-  shutdownCluster() {
+  async shutdownCluster() {
+    debugLog(`Shutting down the cluster`);
     const nonAgents = [...this.coordinators(), ...this.dbServers(), ...this.singleServers()];
 
-    return Promise.all(nonAgents.map(this.shutdown.bind(this)))
-    .then(() => {
-      return Promise.all(this.agents().map(this.shutdown.bind(this)))
-    });
+    let allWaiters = nonAgents.map(n => this.shutdown(n));
+    for (let waiter of allWaiters) {
+      await waiter;
+    }
+    allWaiters = this.agents().map(a => this.shutdown(a));
+    for (let waiter of allWaiters) {
+      await waiter;
+    }
   }
 
-  cleanup() {
-    return this.shutdownCluster()
-      .then(() => {
-        this.instances = [];
-        this.agentCounter = 0;
-        this.coordinatorCounter = 0;
-        this.dbServerCounter = 0;
-        this.singleServerCounter = 0;
-        return this.runner.cleanup();
-      })
-      .then(() => {
-        let log = this.currentLog;
-        this.currentLog = '';
-        return log;
-      });
+  async cleanup() {
+    await this.shutdownCluster();
+    this.instances = [];
+    this.agentCounter = 0;
+    this.coordinatorCounter = 0;
+    this.dbServerCounter = 0;
+    this.singleServerCounter = 0;
+    await this.runner.cleanup();
+    let log = this.currentLog;
+    this.currentLog = '';
+    return log;
   }
 
   dbServers() {
@@ -558,70 +565,59 @@ class InstanceManager {
 
   /// use Current/ServersRegistered to find the corresponding
   /// instance metadata
-  resolveUUID(uuid) {
+  async resolveUUID(uuid) {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
-    return this.rpAgency({
+    const [info] = await this.rpAgency({
       method: 'POST',
       uri: baseUrl + '/_api/agency/read',
       json: true,
       body: [['/arango/Current/ServersRegistered']]
-    }).then(([info]) => {
-      const servers = info.arango.Current.ServersRegistered;
-      let url = servers[uuid].endpoint;
-      return this.instances.filter(inst => inst.endpoint == url).shift();
     });
+    const servers = info.arango.Current.ServersRegistered;
+    let url = servers[uuid].endpoint;
+    return this.instances.filter(inst => inst.endpoint == url).shift();
   }
 
-  assignNewEndpoint(instance) {
+  async assignNewEndpoint(instance) {
     let index = this.instances.indexOf(instance);
     if (index === -1) {
       throw new Error("Couldn't find instance " + instance.name);
     }
 
-    var createNewEndpoint = () => {
-      return this.runner.createEndpoint().then(endpoint => {
-        if (endpoint != instance.endpoint) {
-          return endpoint;
-        } else {
-          return createNewEndpoint();
-        }
-      });
-    };
+    let endpoint;
+    do {
+      endpoint = await this.runner.createEndpoint();
+    } while (endpoint == instance.endpoint);
 
-    return createNewEndpoint().then(endpoint => {
-      [
-        'server.endpoint',
-        'agency.my-address',
-        'cluster.my-address'
-      ].filter(arg => {
-        index = instance.args.indexOf('--' + arg + '=' + instance.endpoint);
-        if (index !== -1) {
-          instance.args[index] = '--' + arg + '=' + endpoint;
-        }
-      });
-      return this.runner.updateEndpoint(instance, endpoint);
+    [
+      'server.endpoint',
+      'agency.my-address',
+      'cluster.my-address'
+    ].filter(arg => {
+      index = instance.args.indexOf('--' + arg + '=' + instance.endpoint);
+      if (index !== -1) {
+        instance.args[index] = '--' + arg + '=' + endpoint;
+      }
     });
+
+    return this.runner.updateEndpoint(instance, endpoint);
   }
 
   // beware! signals are not supported on windows and it will simply do hard kills all the time
   // use shutdown to gracefully stop an instance!
-  kill(instance) {
+  async kill(instance) {
     if (!this.instances.includes(instance)) {
       throw new Error("Couldn't find instance " + instance.name);
     }
 
     instance.process.kill('SIGKILL');
     instance.status = 'KILLED';
-    return new Promise((resolve, reject) => {
-      const check = () => {
-        if (instance.status !== 'EXITED') {
-          setTimeout(check, 50);
-        } else {
-          resolve();
-        }
-      };
-      check();
-    });
+    while (true) {
+      if (instance.status === 'EXITED') {
+        return;
+      }
+      await sleep(50);
+    }
   }
 
   // beware! signals are not supported on windows and it will simply do hard kills all the time
@@ -648,110 +644,88 @@ class InstanceManager {
     instance.status = 'RUNNING';
   }
 
-  shutdown(instance) {
+  // Internal function do not call from outsite
+  async _checkDown(instance) {
+    debugLog(`Test if ${instance.name} is down`);
+    let attempts = 0;
+    while (true) {
+
+      // We leave here with return or throw
+      if (instance.status == 'EXITED') {
+        debugLog(`${instance.name} is now gone.`);
+        return instance;
+      }
+   
+      if (++attempts === shutdownKillAttempts) {
+        debugLog(`Sending SIGKILL to ${instance.name}`);
+        instance.process.kill('SIGKILL');
+        instance.status = 'KILLED';
+      } else if (attempts > shutdownMaxAttempts) {
+        // Sorry we give up, could not terminate instance with Shutdown and not with SIGKILL
+        debugLog(`Failed to shutdown and kill ${instance.name}. Aborting.`);
+        throw new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms');
+      }
+
+      // wait a while and try again.
+      await sleep(shutdownWaitInterval);
+    }
+  }
+
+  async shutdown(instance) {
     if (instance.status == 'EXITED') {
-      return Promise.resolve(instance);
+      return instance;
     }
+    debugLog(`Shutdown ${instance.name}`);
 
-    let checkDown = function() {
-      return new Promise((resolve, reject) => {
-        if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-          console.log((new Date()).toISOString()
-            + " checkDown called for " + instance.name);
-        }
-        let attempts = 0;
-        let killAttempts = 3600;  // 180s, after this time we kill the instance
-        let maxAttempts = 4000;   // 200s, note that the cluster internally
-                                  // has a 120s timeout
-        let waitInterval = 50;
-        (function innerCheckDown() {
-          try {
-            if (instance.status == 'EXITED') {
-              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-                console.log((new Date()).toISOString()
-                  + " innerCheckDown resolve for " + instance.name);
-              }
-              resolve(instance);
-            } else if (++attempts === killAttempts) {
-              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-                console.log((new Date()).toISOString()
-                  + " innerCheckDown: killed" + instance.name);
-              }
-              instance.process.kill('SIGKILL');
-              instance.status = 'KILLED';
-              setTimeout(innerCheckDown, waitInterval);
-            } else if (attempts > maxAttempts) {
-              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-                console.log((new Date()).toISOString()
-                  + " innerCheckDown reject for " + instance.name);
-              }
-              reject(new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms'));
-            } else {
-              setTimeout(innerCheckDown, waitInterval);
-            }
-          } catch (err) {
-            if (err.errorNum == 30) {
-              // Shutdown is ongoing this is expected.
-              // Everything else needs to be reported
-              setTimeout(innerCheckDown, waitInterval);
-            } else {
-              reject(err);
-            }
-          }
-        })();
-      });
-    }
-
-    return rp.delete({
-      url: this.getEndpointUrl(instance) + '/_admin/shutdown',
-    })
-    .catch(err => {
+    try {
+      await rp.delete({ url: this.getEndpointUrl(instance) + '/_admin/shutdown' })
+    } catch (err) {
+      let expected = false;
       if (err && (err.statusCode === 503 || err.error)) {
-        let errObj = (err.error instanceof String) ? JSON.parse(err.error) : err.error;
+        // Some "errors" are expected.
+        let errObj = (err.error instanceof String || typeof err.error === "string") ?
+                       JSON.parse(err.error) : err.error;
         if (errObj.code == 'ECONNREFUSED') {
-          console.warn('hmmm...server ' + instance.name + ' did not respond (' + err.code + '). Assuming it is dead. Status is: ' + instance.status);
-          return checkDown();
+          console.warn('hmmm...server ' + instance.name + ' did not respond (' + JSON.stringify(errObj) + '). Assuming it is dead. Status is: ' + instance.status);
+          expected = true;
         } else if (errObj.code == 'ECONNRESET') {
-          return checkDown();
+          expected = true;
         } else if (err.statusCode === 503) {
           console.warn('server ' + instance.name + ' answered 503. Assuming it is shutting down. Status is: ' + instance.status);
-          return checkDown();
+          expected = true;
         } else if (errObj.errorNum === ERR_IN_SHUTDOWN) {
-          return checkDown();
+          expected = true;
+        }
+        if (!expected) {
+          console.error("Wir hassen den shutdown: ", errObj.errorNum, " so total sehr " , err.error, "wir haben den typ", typeof err.error);
         }
       }
-      console.error("Unhandled error", err);
-
-      return Promise.reject(err);
-    })
-    .then(x => {
-      return checkDown();
-    })
-  }
-
-  destroy(instance) {
-    let promise;
-    if (this.instances.includes(instance)) {
-      promise = this.shutdown(instance);
-    } else {
-      promise = Promise.resolve();
-    }
-    return promise.then(() => this.runner.destroy(instance)).then(() => {
-      const idx = this.instances.indexOf(instance);
-      if (idx !== -1) {
-        this.instances.splice(idx, 1);
+      if (!expected) {
+        console.error("Unhandled error", err);
+        throw err;
       }
-    });
+    }
+    return this._checkDown(instance);
   }
 
-  restart(instance) {
+  async destroy(instance) {
+    if (this.instances.includes(instance)) {
+      await this.shutdown(instance);
+    }
+    await this.runner.destroy(instance);
+    const idx = this.instances.indexOf(instance);
+    if (idx !== -1) {
+      this.instances.splice(idx, 1);
+    }
+  }
+
+  async restart(instance) {
     if (!this.instances.includes(instance)) {
       throw new Error("Couldn't find instance " + instance.name);
     }
-
-    return this.runner.restart(instance).then(() => {
-      return this.waitForInstance(instance);
-    });
+    debugLog(`Restarting ${instance.name}`); 
+    await this.runner.restart(instance);
+    return this.waitForInstance(instance);
   }
 
   // this will append the logs to the test in case of a failure so
