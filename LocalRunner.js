@@ -20,12 +20,15 @@ class LocalRunner {
     const dir = path.join(this.rootDir, instance.name);
     const dataDir = path.join(dir, 'data');
     const appsDir = path.join(dir, 'apps');
+    const logFile = path.join(dir, 'arangod.log');
+    instance.logFile = logFile;
 
     instance.args.unshift('--configuration=none');
     instance.args.push(...[
       `--javascript.startup-directory=${path.join(this.basePath, 'js')}`,
       `--javascript.app-path=${appsDir}`,
       `--server.endpoint=${instance.endpoint}`,
+      `--log.file=${logFile}`,
       dataDir
     ]);
 
