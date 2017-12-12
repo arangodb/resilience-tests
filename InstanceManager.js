@@ -8,6 +8,7 @@ const common = require('./common.js');
 const endpointToUrl = common.endpointToUrl;
 const ERR_IN_SHUTDOWN = 30;
 const WAIT_TIMEOUT = 400; // seconds
+const FailoverError = require('./Errors.js').FailoverError;
 const debugLog = (logLine) => {
   if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
     console.log((new Date()).toISOString(), logLine);
@@ -419,7 +420,11 @@ class InstanceManager {
       const shards = collection.shards;
       const shardsId = Object.keys(shards)[0];
       const uuid = shards[shardsId][0];
-      const endpoint = servers[uuid].endpoint;
+      const server = servers[uuid];
+      if (!server) {
+        throw new FailoverError(`The leader for "${collectionName}" is not registered. Maybe a failover situation`);
+      }
+      const endpoint = server.endpoint;
       const dbServers = this.dbServers().filter(
         instance => instance.endpoint === endpoint
       );
@@ -479,7 +484,6 @@ class InstanceManager {
       let _test_ = Date.now() - started;
       
       if (_test_ > WAIT_TIMEOUT * 1000) {
-        console.error("Hass", _test_, WAIT_TIMEOUT * 1000, started, Date.now());
         throw new Error(
           `Instance ${instance.name} is still not ready after ${WAIT_TIMEOUT} secs`
         );
@@ -497,12 +501,58 @@ class InstanceManager {
     }
   }
 
+  async waitForSyncReplication() {
+    const baseUrl = endpointToUrl(this.getAgencyEndpoint());
+    // We wait at most 50s for everything to get in sync
+    for (let i = 0; i < 100; ++i) {
+      let [info] = await this.rpAgency({
+        method: 'POST',
+        uri: baseUrl + '/_api/agency/read',
+        json: true,
+        body: [
+          [
+            '/arango/Current/Collections/_system'
+          ]
+        ]
+      });
+      const current = info.arango.Current.Collections._system;
+
+      let foundNotInSync = false;
+      if (Object.keys(current).length < 13) {
+        // The Cluster needs to create 13 system collections. Wait and try again
+        await sleep(500);
+        continue;
+      }
+      for (const [key, collection] of Object.entries(current)) {
+        if (foundNotInSync) {
+          break;
+        }
+        for (const [sname, shard] of Object.entries(collection)) {
+          if (foundNotInSync) {
+            break;
+          }
+          if (!Array.isArray(shard.servers) || shard.servers.length < 2) {
+            // We do not have one in sync follower for each shard
+            // Sleep and try again
+            foundNotInSync = true;
+            continue;
+          }
+        }
+      }
+      if (!foundNotInSync) {
+        return true;
+      }
+      await sleep(500);
+    }
+  }
+
   async waitForAllInstances() {
     let allWaiters = this.instances.map(instance => this.waitForInstance(instance));
     let results = [];
     for (let waiter of allWaiters) {
       results.push(await waiter);
     }
+    await this.waitForSyncReplication();
     return results;
   }
 
