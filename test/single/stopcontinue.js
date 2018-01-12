@@ -99,9 +99,7 @@ describe('Temporary stopping', async function() {
 
           instanceManager.sigcontinue(old);
           console.log('stopped instance continued');
-  
-          // we need to wait for the server to get out of maintenance mode
-          await sleep(250); // TODO do not use sleep here ?
+
           db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
           await checkData(db, expectedNumDocs);
 

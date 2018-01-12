@@ -37,7 +37,7 @@ describe('Testing leader-follower failover', async function() {
   });
 
   // no actual data is transmitted, only heartbeat thread is tested
-  /*describe('Basic tick value synchronization', async function() {
+  describe('Basic tick value synchronization', async function() {
   
     /// check tick values synchronize, check endpoints
     /// TODO check for redirects to leader
@@ -140,7 +140,7 @@ describe('Testing leader-follower failover', async function() {
   });//*/
   
   // Actual data synchronization
-  describe('Data replication', async function() {
+  describe('with data transfer', async function() {
   
     async function generateData(db, num) {
       let coll = await db.collection("testcollection");
@@ -163,7 +163,7 @@ describe('Testing leader-follower failover', async function() {
     }
   
     [100, 1000, 25000].forEach(numDocs => {
-      for (let n = 2; n <= 8; n *= 2) {
+      [2, 4, 8].forEach(n => {
         let f = n / 2;
         it(`with ${n} servers, ${f} failover, leader restart ${numDocs} documents`, async function() {
           await instanceManager.startSingleServer('single', n);
@@ -190,9 +190,7 @@ describe('Testing leader-follower failover', async function() {
         
             uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
             leader = await instanceManager.asyncReplicationLeaderInstance();
-    
-            // we need to wait for the server to get out of maintenance mode
-            await sleep(250); // TODO do not use sleep here ?
+
             db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
             await checkData(db, numDocs);
             
@@ -200,11 +198,11 @@ describe('Testing leader-follower failover', async function() {
             console.log('killed instance restarted');
           }
         });
-      }
-    });
+      });
+    });//*/
   
     [100, 1000, 25000].forEach(numDocs => {
-      for (let n = 2; n <= 8; n *= 2) {
+      [2, 4, 8].forEach(n => { // 2, 8
         let f = n - 1;
         it(`with ${n} servers, ${f} failover, no restart ${numDocs} documents`, async function() {
           await instanceManager.startSingleServer('single', n);
@@ -230,14 +228,12 @@ describe('Testing leader-follower failover', async function() {
         
             uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
             leader = await instanceManager.asyncReplicationLeaderInstance();
-    
-            // we need to wait for the server to get out of maintenance mode
-            await sleep(250); // TODO do not use sleep here ?
+
             db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
             await checkData(db, numDocs);
           }
         });
-      }
+      });
     });
   });  
 });
