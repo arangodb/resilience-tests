@@ -23,7 +23,7 @@ async function requestEndpoints(url) {
   return body.endpoints;
 };
 
-describe('Testing leader-followe failover', async function() {
+describe('Testing leader-follower failover', async function() {
 
   const instanceManager = new InstanceManager('setup');
   
@@ -36,7 +36,8 @@ describe('Testing leader-followe failover', async function() {
     return instanceManager.cleanup();
   });
 
-  describe('Synchronize tick values', async function() {
+  // no actual data is transmitted, only heartbeat thread is tested
+  /*describe('Basic tick value synchronization', async function() {
   
     /// check tick values synchronize, check endpoints
     /// TODO check for redirects to leader
@@ -65,36 +66,6 @@ describe('Testing leader-followe failover', async function() {
         // 60s later, which would prolong these tests
       }
     }
-  
-    // TODO add acutal checks for endpoints combined
-    // with health status from supervision. Problematic is the unclear
-    // delay between killing servers and a status update in Supervision/Health
-    /*async function doHealthChecks(n, leader) {
-      // wait at least 0.5s + 2.5s for agency supervision
-      // to persist the health status
-      await sleep(5000);    
-  
-      const [info] = await instanceManager.rpAgency({
-        method: 'POST',
-        uri: baseUrl + '/_api/agency/read',
-        json: true,
-        body: [['/arango/Supervision/Health']]
-      });
-  
-      let running = instanceManager.singleServers().filter(inst => inst.status === 'RUNNING');    
-      let registered = info.arango.Target.Supervision.Health;
-      Object.keys(registered).forEach(async uuid => {
-        if (registered[uuid].Status === 'FAILED') {
-          return;
-        }
-        const remote = instanceManager.resolveUUID(uuid);
-        expect(running.find(ii => ii.endpoint === inst.endpoint)).to.be.not(undefined);
-  
-        let list = await requestEndpoints(remote.endpoint);
-        expect(list).to.have.lengthOf(n, "Endpoints: " + JSON.stringify(list));     
-        expect(leader.endpoint).to.equal(list[0]);      
-      });
-    }*/
   
     [2, 4, 8].forEach(n => {
     it(`for ${n} servers`, async function() {
@@ -144,7 +115,7 @@ describe('Testing leader-followe failover', async function() {
     
     for (let n = 2; n <= 8; n *= 2) { 
       let f = n / 2;    
-      it.only(`for ${n} servers with ${f} failover, no restart`, async function() {
+      it(`for ${n} servers with ${f} failover, no restart`, async function() {
         await instanceManager.startSingleServer('single', n);
         await instanceManager.waitForAllInstances();
   
@@ -166,10 +137,10 @@ describe('Testing leader-followe failover', async function() {
         }
       });
     }
+  });//*/
   
-  });
-  
-  describe('Replicating data', async function() {
+  // Actual data synchronization
+  describe('Data replication', async function() {
   
     async function generateData(db, num) {
       let coll = await db.collection("testcollection");
@@ -194,7 +165,7 @@ describe('Testing leader-followe failover', async function() {
     [100, 1000, 25000].forEach(numDocs => {
       for (let n = 2; n <= 8; n *= 2) {
         let f = n / 2;
-        it(`with ${n} servers, ${f} failover, leader restart ${numDocs}`, async function() {
+        it(`with ${n} servers, ${f} failover, leader restart ${numDocs} documents`, async function() {
           await instanceManager.startSingleServer('single', n);
           await instanceManager.waitForAllInstances();
     
@@ -235,7 +206,7 @@ describe('Testing leader-followe failover', async function() {
     [100, 1000, 25000].forEach(numDocs => {
       for (let n = 2; n <= 8; n *= 2) {
         let f = n - 1;
-        it(`with ${n} servers, ${f} failover, no restart ${numDocs}`, async function() {
+        it(`with ${n} servers, ${f} failover, no restart ${numDocs} documents`, async function() {
           await instanceManager.startSingleServer('single', n);
           await instanceManager.waitForAllInstances();
     
@@ -271,3 +242,34 @@ describe('Testing leader-followe failover', async function() {
   });  
 });
 
+
+
+// TODO add acutal checks for endpoints combined
+// with health status from supervision. Problematic is the unclear
+// delay between killing servers and a status update in Supervision/Health
+/*async function doHealthChecks(n, leader) {
+  // wait at least 0.5s + 2.5s for agency supervision
+  // to persist the health status
+  await sleep(5000);    
+
+  const [info] = await instanceManager.rpAgency({
+    method: 'POST',
+    uri: baseUrl + '/_api/agency/read',
+    json: true,
+    body: [['/arango/Supervision/Health']]
+  });
+
+  let running = instanceManager.singleServers().filter(inst => inst.status === 'RUNNING');    
+  let registered = info.arango.Target.Supervision.Health;
+  Object.keys(registered).forEach(async uuid => {
+    if (registered[uuid].Status === 'FAILED') {
+      return;
+    }
+    const remote = instanceManager.resolveUUID(uuid);
+    expect(running.find(ii => ii.endpoint === inst.endpoint)).to.be.not(undefined);
+
+    let list = await requestEndpoints(remote.endpoint);
+    expect(list).to.have.lengthOf(n, "Endpoints: " + JSON.stringify(list));     
+    expect(leader.endpoint).to.equal(list[0]);      
+  });
+}*/

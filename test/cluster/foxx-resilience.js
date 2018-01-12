@@ -9,12 +9,12 @@ const expect = require('chai').expect;
 
 const noop = () => {};
 const service1 = readFileSync(
-  join(__dirname, '..', 'fixtures', 'service1.zip')
+  join(__dirname, '..', '..', 'fixtures', 'service1.zip')
 );
 const service2 = readFileSync(
-  join(__dirname, '..', 'fixtures', 'service2.zip')
+  join(__dirname, '..', '..', 'fixtures', 'service2.zip')
 );
-const utilService = readFileSync(join(__dirname, '..', 'fixtures', 'util.zip'));
+const utilService = readFileSync(join(__dirname, '..', '..', 'fixtures', 'util.zip'));
 const UTIL_MOUNT = '/util';
 const SERVICE_1_CHECKSUM = '69d01a5c';
 const SERVICE_2_CHECKSUM = '23b806e2';
