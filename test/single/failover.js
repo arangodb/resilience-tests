@@ -37,14 +37,16 @@ describe('Testing leader-follower failover', async function() {
   });
 
   // no actual data is transmitted, only heartbeat thread is tested
-  describe('Basic tick value synchronization', async function() {
+  describe('basic tick value synchronization', async function() {
   
     /// check tick values synchronize, check endpoints
     /// TODO check for redirects to leader
     async function doServerChecks(n, leader) {
       console.log("Waiting for tick synchronization...");
-      const inSync = await instanceManager.asyncReplicationTicksInSync(60.0);
-      expect(inSync).to.equal(true, "followers did not get in sync before timeout");   
+      if (n > 1) { // n includes leader, method will throw without slaves
+        const inSync = await instanceManager.asyncReplicationTicksInSync(60.0);
+        expect(inSync).to.equal(true, "followers did not get in sync before timeout");  
+      }
   
       console.log("Checking endpoints...");
       /// make sure all servers know the leader
