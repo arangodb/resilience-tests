@@ -6,7 +6,6 @@ const ip = require('ip');
 function startInstance(instance) {
   instance.port = portFromEndpoint(instance.endpoint);
   return new Promise((resolve, reject) => {
-    console.error(instance.name, "STARTUP");
     const process = spawn(instance.binary, instance.args);
 
     process.stdout.on('data', data =>
@@ -16,13 +15,11 @@ function startInstance(instance) {
       data.toString().split('\n').forEach(instance.logFn));
 
     process.on('exit', code => {
-      console.error(instance.name, "EXITED");
       instance.status = 'EXITED';
       instance.exitcode = code;
 
       // instance.logFn(`exited with code ${code}`);
     });
-    console.error(instance.name, "IS NOW RUNNING");
     instance.exitcode = null;
     instance.status = 'RUNNING';
     instance.process = process;
