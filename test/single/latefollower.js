@@ -12,7 +12,7 @@ const sleep = (ms= 1000) => new Promise(resolve => setTimeout(resolve, ms));
 describe('Adding late followers', async function() {
   const instanceManager = new InstanceManager('setup');
 
-  beforeEach(async function(){
+  beforeEach(async function() {
     await instanceManager.startAgency({agencySize:1});        
   });
 

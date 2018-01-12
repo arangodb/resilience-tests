@@ -331,15 +331,22 @@ class InstanceManager {
     return leader;
   }
 
-  /// wait for leader selection
+  /// wait for leader selection (leader key is in agency)
   async asyncReplicationLeaderSelected(ignore = null) {
-    let i = 200;
+    let i = 300;
     while (i-- > 0) {
       let val = await this.asyncReplicationLeaderId();
       if (val !== null && ignore !== val) {
         return val;
       }
       await sleep(100);
+    }
+    let uuid = await this.asyncReplicationLeaderId();
+    console.error("Timout waiting for leader selection");
+    if (uuid) {
+      console.error("Invalid leader in agency: %s (%s)", uuid, this.resolveUUID(uuid));
+    } else {
+      console.error("No leader in agency");
     }
     throw new Error("Timout waiting for leader selection");
   }
@@ -351,11 +358,14 @@ class InstanceManager {
     if (uuid == null) {
       throw "leader is not in agency";
     }
-    console.log("Leader in agency %s", uuid)
     let instance = await this.resolveUUID(uuid);
     if (!instance) {
+      console.error("Could not find leader instance locally");
       throw new Error("Could not find leader instance locally");
     }
+    console.log("Leader in agency %s (%s)", uuid, instance.endpoint);
+    // we need to wait for the server to get out of maintenance mode
+    await this.asyncWaitInstanceOperational(instance.endpoint);
     return instance;
   }
 
@@ -364,12 +374,12 @@ class InstanceManager {
     const body = await rp.get({json: true, uri: `${url}/_api/wal/lastTick`});
     return body.tick;
   }
-
+  
   /// Wait for servers to get in sync
   async getApplierState(url) {
     url = endpointToUrl(url);
     const body = await rp.get({json: true, uri:`${url}/_api/replication/applier-state?global=true`});
-    return body.state;
+    return body;
   }
 
   /// Wait for servers to get in sync with leader
@@ -378,24 +388,47 @@ class InstanceManager {
     const leaderTick = await this.lastWalTick(leader.endpoint);
     console.log("Leader Tick %s = %s", leader.endpoint, leaderTick);
     let followers = this.singleServers().filter(inst => inst.status === 'RUNNING' && 
-                                                        inst.endpoint != leader.endpoint);      
+                                                        inst.endpoint != leader.endpoint);
+    if (followers.length === 0) {
+      throw new Error("No followers to wait for");
+    }  
 
-    let tttt = Math.ceil(timoutSecs * 2);
+    let tttt = Math.ceil(timoutSecs * 4);
     for (let i = 0; i < tttt; i++) {
       const result = await Promise.all(followers.map(async flw => this.getApplierState(flw.endpoint)))
-      let unfinished = result.filter(state => 
-        common.compareTicks(state.lastProcessedContinuousTick, leaderTick) == -1
+      // is follower running, pulling from current leader and tick values are equal ?
+      let unfinished = result.filter(result =>
+        !result.state.running || result.endpoint !== leader.endpoint ||
+          common.compareTicks(result.state.lastProcessedContinuousTick, leaderTick) == -1
       );
       if (unfinished.length == 0) {
         return true;
       } 
-      await sleep(500); // 0.5s
-      if (i % 2 == 0 && i > tttt / 2) {
+      await sleep(250); // 0.25s
+      if (i % 4 == 0 && i > tttt / 4) {
         console.log("Unfinished state: %s", JSON.stringify(unfinished));
       }
     }
     return false;
   }
+
+  // Wait for server to respond to an AQL query
+  async asyncWaitInstanceOperational(endpoint, timoutSecs = 45.0) {
+    let db = arangojs({ url: endpointToUrl(endpoint), databaseName: '_system' });
+
+    let i = Math.ceil(timoutSecs * 2);
+    while(i-- > 0) {
+      try { 
+        // should throw if server is unvalailable
+        let cursor = await db.query("FOR x IN [1,2] RETURN x");
+        return true; // worked
+      } catch (ignored) {}
+      await sleep(500); // 0.5s
+    }
+    console.error("Leader did not figure out leadership in time");
+    throw new Error('Timeout waiting for leader to respond');
+  }
+  
   
   findPrimaryDbServer(collectionName) {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());

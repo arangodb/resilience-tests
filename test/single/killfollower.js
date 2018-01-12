@@ -9,7 +9,7 @@ const arangojs = require('arangojs');
 const expect = require('chai').expect;
 const sleep = (ms= 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
-describe('Failing followers', async function() {
+describe('Testing failing followers', async function() {
   const instanceManager = new InstanceManager('setup');
 
   beforeEach(async function(){

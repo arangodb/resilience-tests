@@ -64,6 +64,7 @@ describe('Temporary stopping', async function() {
     expect(i).to.equal(num, "not all documents on server");
   }
 
+  // sigstop master and wait for failover
   [100, 1000, 10000].forEach(numDocs => {
     [4, 6, 8].forEach(n => {
       let f = n / 2;
@@ -98,9 +99,7 @@ describe('Temporary stopping', async function() {
 
           instanceManager.sigcontinue(old);
           console.log('stopped instance continued');
-  
-          // we need to wait for the server to get out of maintenance mode
-          await sleep(250); // TODO do not use sleep here ?
+
           db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
           await checkData(db, expectedNumDocs);
 
