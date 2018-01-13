@@ -73,8 +73,10 @@ describe('Testing failing followers', async function() {
           await sleep(1000);
           // leader should not have changed          
           expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
-          inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
-          expect(inSync).to.equal(true, "followers did not get in sync before timeout");  
+          if (n > 2) { // no slaves alive atm
+            inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
+            expect(inSync).to.equal(true, "followers did not get in sync before timeout");  
+          }
 
           // check the data on the master
           db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
@@ -120,7 +122,7 @@ describe('Testing failing followers', async function() {
           // leader should not have changed          
           expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
           inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
-          expect(inSync).to.equal(true, "followers did not get in sync before timeout");  
+          expect(inSync).to.equal(true, "followers did not get in sync before timeout");
 
           // check the data on the master
           db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });

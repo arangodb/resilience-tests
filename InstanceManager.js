@@ -390,7 +390,8 @@ class InstanceManager {
     let followers = this.singleServers().filter(inst => inst.status === 'RUNNING' && 
                                                         inst.endpoint != leader.endpoint);
     if (followers.length === 0) {
-      throw new Error("No followers to wait for");
+      return true; // no followers running anymore
+      //throw new Error("No followers to wait for");
     }  
 
     let tttt = Math.ceil(timoutSecs * 4);
