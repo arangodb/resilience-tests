@@ -18,7 +18,7 @@ describe('Adding late followers', async function() {
 
   afterEach(function() {
     instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup();
+    return instanceManager.cleanup().catch(noop);
   });
 
   async function generateData(db, num) {

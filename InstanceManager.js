@@ -333,7 +333,7 @@ class InstanceManager {
 
   /// wait for leader selection (leader key is in agency)
   async asyncReplicationLeaderSelected(ignore = null) {
-    let i = 300;
+    let i = 250; // 25s should be max 30s according to spec
     while (i-- > 0) {
       let val = await this.asyncReplicationLeaderId();
       if (val !== null && ignore !== val) {
@@ -368,12 +368,6 @@ class InstanceManager {
     await this.asyncWaitInstanceOperational(instance.endpoint);
     return instance;
   }
-
-  async lastWalTick(url) {
-    url = endpointToUrl(url);    
-    const body = await rp.get({json: true, uri: `${url}/_api/wal/lastTick`});
-    return body.tick;
-  }
   
   /// Wait for servers to get in sync
   async getApplierState(url) {
@@ -385,7 +379,10 @@ class InstanceManager {
   /// Wait for servers to get in sync with leader
   async asyncReplicationTicksInSync(timoutSecs = 45.0) {
     let leader = await this.asyncReplicationLeaderInstance();
-    const leaderTick = await this.lastWalTick(leader.endpoint);
+    let url = endpointToUrl(leader.endpoint);    
+    const body = await rp.get({json: true, uri: `${url}/_api/wal/lastTick`});
+
+    const leaderTick = body.tick;
     console.log("Leader Tick %s = %s", leader.endpoint, leaderTick);
     let followers = this.singleServers().filter(inst => inst.status === 'RUNNING' && 
                                                         inst.endpoint != leader.endpoint);
