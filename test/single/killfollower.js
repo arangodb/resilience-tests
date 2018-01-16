@@ -18,7 +18,7 @@ describe('Testing failing followers', async function() {
 
   afterEach(function() {
     instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup().catch(noop);
+    return instanceManager.cleanup().catch(() => {});
   });
 
   async function generateData(db, num) {

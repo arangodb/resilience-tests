@@ -7,8 +7,6 @@ const endpointToUrl = require('../../common.js').endpointToUrl;
 const arangojs = require('arangojs');
 const aql = arangojs.aql;
 const expect = require('chai').expect;
-
-const noop = () => {};
 const service1 = readFileSync(
   join(__dirname, '..', '..', 'fixtures', 'service1.zip')
 );
@@ -32,7 +30,7 @@ describe('Foxx service', async function() {
   });
   afterEach(function() {
     instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup().catch(noop);
+    return instanceManager.cleanup().catch(() => {});
   });
 
   it('survives leader failover', async function() {
