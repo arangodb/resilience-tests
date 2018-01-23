@@ -7,7 +7,8 @@ const arangojs = require('arangojs');
 const expect = require('chai').expect;
 const FailoverError = require('../../Errors.js').FailoverError;
 // Wait 100s this is rather long and should retain on slow machines also
-const MAX_FAILOVER_TIMEOUT_MS = 1000000;
+// const MAX_FAILOVER_TIMEOUT_MS = 1000000;
+const MAX_FAILOVER_TIMEOUT_MS = 10000;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const noop = () => {};
@@ -20,7 +21,8 @@ describe('Foxx service', function () {
   const MOUNT = '/resiliencetestservice';
 
   const waitForLeaderFailover = async function (col, lastLeader) {
-    const retryIntervalMS = 10000;
+    // const retryIntervalMS = 10000;
+    const retryIntervalMS = 1000;
     let count = 0;
     while (count * retryIntervalMS < MAX_FAILOVER_TIMEOUT_MS) {
       try {
@@ -29,16 +31,20 @@ describe('Foxx service', function () {
           // we got a new leader yay \o/
           return;
         }
+        console.error(newLeader,"vs",lastLeader);
       } catch (e) {
         if (e instanceof FailoverError) {
+          console.error("Failover Error!");
           // This is expected! just continue
         } else {
           // unexpected error throw it
           throw e;
         }
       }
+      ++count;
       await sleep(retryIntervalMS);
     }
+    await im.dumpAgency();
     throw new Error(`Failover did not succueed in ${MAX_FAILOVER_TIMEOUT_MS/1000}s`);
   };
 
@@ -50,14 +56,12 @@ describe('Foxx service', function () {
   });
 
   describe('when already installed', function () {
-    beforeEach(function () {
+    beforeEach(async function () {
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
-      return db.installService(MOUNT, service1)
-      .then(() => db.route(MOUNT).get())
-      .then((response) => {
-        expect(response).to.have.property('body', 'service1');
-      });
+      await db.installService(MOUNT, service1);
+      const response = await db.route(MOUNT).get();
+      expect(response).to.have.property('body', 'service1');
     });
 
     it('should survive primary dbServer being rebooted', async function () {
@@ -104,11 +108,13 @@ describe('Foxx service', function () {
 
   describe('while primary dbServer is being rebooted', function () {
 
-    it('can be installed', async function () {
+    it.only('can be installed', async function () {
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
       const primary = await im.findPrimaryDbServer('_apps');
+      console.error("Killing: ", primary);
       await im.shutdown(primary);
+      console.error("This run worked");
       await waitForLeaderFailover('_apps', primary);
       await db.installService(MOUNT, service1);
       await im.restart(primary);
@@ -152,54 +158,47 @@ describe('Foxx service', function () {
   });
 
   describe('while primary dbServer is being replaced', function () {
-    it('can be installed', function () {
+
+    it('can be installed', async function () {
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
-      return im.findPrimaryDbServer('_apps')
-      .then((dbServer) => {
-        return im.destroy(dbServer)
-        .then(() => db.installService(MOUNT, service1))
-        .then(() => im.replace(dbServer));
-      })
-      .then(() => db.route(MOUNT).get())
-      .then((response) => {
-        expect(response).to.have.property('body', 'service1');
-      });
+      const dbServer = await im.findPrimaryDbServer('_apps');
+      await im.destroy(dbServer);
+      await waitForLeaderFailover('_apps', dbServer);
+      await db.installService(MOUNT, service1);
+      await im.replace(dbServer);
+      const response = await db.route(MOUNT).get();
+      expect(response).to.have.property('body', 'service1');
     });
 
-    it('can be replaced', function () {
+    it('can be replaced', async function () {
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
-      return im.findPrimaryDbServer('_apps')
-      .then((dbServer) => {
-        return db.installService(MOUNT, service1)
-        .then(() => im.destroy(dbServer))
-        .then(() => db.replaceService(MOUNT, service2))
-        .then(() => im.replace(dbServer));
-      })
-      .then(() => db.route(MOUNT).get())
-      .then((response) => {
-        expect(response).to.have.property('body', 'service2');
-      });
+      const dbServer = await im.findPrimaryDbServer('_apps');
+      await db.installService(MOUNT, service1);
+      await im.destroy(dbServer);
+      await waitForLeaderFailover('_apps', dbServer);
+      await db.replaceService(MOUNT, service2);
+      await im.replace(dbServer);
+      const response = await db.route(MOUNT).get();
+      expect(response).to.have.property('body', 'service2');
     });
 
-    it('can be removed', function () {
+    it('can be removed', async function () {
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
-      return im.findPrimaryDbServer('_apps')
-      .then((dbServer) => {
-        return db.installService(MOUNT, service1)
-        .then(() => im.destroy(dbServer))
-        .then(() => db.uninstallService(MOUNT))
-        .then(() => im.replace(dbServer));
-      })
-      .then(() => {
-        return db.route(MOUNT).get()
-        .then(
-          () => expect.fail(),
-          (error) => expect(error).to.have.property('code', 404)
-        );
-      });
+      const dbServer = await im.findPrimaryDbServer('_apps');
+      await db.installService(MOUNT, service1);
+      await im.destroy(dbServer);
+      await waitForLeaderFailover('_apps', dbServer);
+      await db.uninstallService(MOUNT);
+      await im.replace(dbServer);
+      try {
+        const response = await db.route(MOUNT).get();
+        expect.fail();
+      } catch (error) {
+        expect(error).to.have.property('code', 404);
+      }
     });
   });
 });
