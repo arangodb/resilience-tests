@@ -298,6 +298,28 @@ class InstanceManager {
     return this.instances = instances;
   }
 
+  async dumpAgency() {
+    const baseUrl = endpointToUrl(this.getAgencyEndpoint());
+
+    try {
+      let body = await rp({
+        method: 'POST', json: true,
+        uri: `${baseUrl}/_api/agency/read`,
+        followAllRedirects: true,      
+        body: [['/']]
+      });
+      let plan = body[0].arango.Plan;
+      let current = body[0].arango.Current;
+      let target = body[0].arango.Target;
+      console.error(JSON.stringify(plan));
+      console.error(JSON.stringify(current));
+      console.error(JSON.stringify(target));
+    } catch(e) {
+      return null;
+    }
+ 
+  }
+
   /// Lookup the async failover leader in agency
   async asyncReplicationLeaderId() {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
@@ -515,6 +537,14 @@ class InstanceManager {
           ]
         ]
       });
+      if (!info.hasOwnProperty('arango')
+          || !info.arango.hasOwnProperty('Current')
+          || !info.arango.Current.hasOwnProperty('Collections')
+          || !info.arango.Current.Collections.hasOwnProperty('_system')) {
+        debugLog('Got unexpected result from AgencyPlan:', info);
+        await sleep(500);
+        continue;
+      }
       const current = info.arango.Current.Collections._system;
 
       let foundNotInSync = false;
