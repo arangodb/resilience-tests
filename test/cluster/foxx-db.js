@@ -112,10 +112,10 @@ describe('Foxx service', function () {
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
       const primary = await im.findPrimaryDbServer('_apps');
-      console.error("Killing: ", primary);
+      console.error("Killing: ", primary.name);
       await im.shutdown(primary);
-      console.error("This run worked");
       await waitForLeaderFailover('_apps', primary);
+      console.error("This run worked");
       await db.installService(MOUNT, service1);
       await im.restart(primary);
       const response = await db.route(MOUNT).get();
