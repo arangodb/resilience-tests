@@ -23,23 +23,32 @@ const sleep = (ms= 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
 describe('Foxx service', async function() {
   const instanceManager = new InstanceManager('foxx-resilience');
-  let endpointUrl;
+
+  const serviceInfos = [{
+    mount: MOUNT_1,
+    service: service1,
+    checksum: SERVICE_1_CHECKSUM,
+    result: SERVICE_1_RESULT
+  }];
 
   beforeEach(async function() {
     await instanceManager.startAgency({agencySize:1});        
   });
+
   afterEach(function() {
     instanceManager.moveServerLogs(this.currentTest);
     return instanceManager.cleanup().catch(() => {});
   });
 
+  async function generateData(db, num) {
+    let coll = await db.collection("testcollection");
+    await coll.create();
+    return Promise.all(Array.apply(0, Array(num))
+          .map( (x, i) =>  i)
+          .map(i => coll.save({test:i})));
+  }
+
   it('survives leader failover', async function() {
-    const serviceInfos = [{
-      mount: MOUNT_1,
-      service: service1,
-      checksum: SERVICE_1_CHECKSUM,
-      result: SERVICE_1_RESULT
-    }];
 
     await instanceManager.startSingleServer('single', 2);
     await instanceManager.waitForAllInstances();
@@ -74,9 +83,56 @@ describe('Foxx service', async function() {
     });
   });
 
-  /*it('survives successive leadership failovers', async function() {
+  it('survives leader failover with data', async function() {
 
-  });*/
+    await instanceManager.startSingleServer('single', 2);
+    await instanceManager.waitForAllInstances();
+
+    let uuid = await instanceManager.asyncReplicationLeaderSelected();
+    let leader = await instanceManager.asyncReplicationLeaderInstance();
+
+    console.log('installing foxx app on %s', leader.endpoint);
+    let leaderUrl = endpointToUrl(leader.endpoint); 
+    await installUtilService(leader.endpoint);
+    await installAndCheckServices({
+      endpointUrl: leaderUrl,
+      serviceInfos: serviceInfos
+    });
+
+    let db = arangojs({ url: leaderUrl, databaseName: '_system' });
+    let coll = await db.collection("testcollection");
+    await coll.create();
+    await Promise.all(Array.apply(0, Array(1000))
+                      .map( (x, i) =>  i)
+                      .map(i => coll.save({test:i})));
+    let cc = await coll.count();
+    console.log(cc)
+    expect(cc.count).to.be.eq(1000);
+
+    // wait for followers to get in sync
+    const inSync = await instanceManager.asyncReplicationTicksInSync(60.0);
+    expect(inSync).to.equal(true, "followers did not get in sync before timeout");  
+
+    console.log('killing leader %s', leader.endpoint);    
+    await instanceManager.kill(leader);
+
+    uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
+    leader = await instanceManager.asyncReplicationLeaderInstance();
+
+    // just to be sure the foxx queue got a chance to run
+    await sleep(3000);
+
+    leaderUrl = endpointToUrl(leader.endpoint);
+    console.log('checking service on new leader %s', leader.endpoint);    
+    await checkAllServices({
+      endpointUrl: endpointToUrl(leader.endpoint),
+      serviceInfos: serviceInfos
+    });
+
+    db = arangojs({ url: leaderUrl, databaseName: '_system' });
+    cc = await db.collection("testcollection").count();
+    expect(cc.count).to.be.eq(1000);
+  });
 });
 
 async function installAndCheckServices(services) {
