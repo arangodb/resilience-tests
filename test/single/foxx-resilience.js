@@ -237,7 +237,7 @@ async function checkBundleExists(endpointUrl, mount, expectedResult) {
         expect(e.code).to.equal(404);
         return;
       }
-      throw new Error("Exception during bundle check: %s", JSON.stringify(e));
+      throw new Error("Exception during bundle check: %s", e.errorMessage || e.errorNum);
     }
     expect(response.statusCode).to.equal(200);
   }
