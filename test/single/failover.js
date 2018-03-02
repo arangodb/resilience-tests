@@ -33,7 +33,7 @@ describe('Testing leader-follower failover', async function() {
 
   afterEach(function() {
     instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup();
+    return instanceManager.cleanup().catch(() => {});
   });
 
   // no actual data is transmitted, only heartbeat thread is tested
