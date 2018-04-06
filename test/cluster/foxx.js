@@ -18,10 +18,12 @@ describe('Foxx service', function() {
   const im = new InstanceManager();
   const MOUNT = '/resiliencetestservice';
 
-  beforeEach(() => im.startCluster(1, 2, 2));
+  beforeEach(async () => {
+    await im.startCluster(1, 2, 2)
+  });
   afterEach(async () => {
     try {
-      im.cleanup();
+      await im.cleanup();
     } catch (_) {}
   });
 
@@ -63,8 +65,12 @@ describe('Foxx service', function() {
 
     it('should survive all coordinators being replaced', async function() {
       const instances = im.coordinators();
-      await Promise.all(instances.map(instance => im.destroy(instance)));
-      await Promise.all(instances.map(instance => im.replace(instance)));
+      try {
+        await Promise.all(instances.map(instance => im.destroy(instance)));
+        await Promise.all(instances.map(instance => im.replace(instance)));
+      } catch (e) {
+        expect.fail(null, null, 'Failed to replace all coordinators: ' + e);
+      }
       const coord = instances[0];
       const db = arangojs(im.getEndpointUrl(coord));
       const response = await db.route(MOUNT).get();
@@ -73,11 +79,15 @@ describe('Foxx service', function() {
 
     it('should survive all coordinators being rebooted', async function() {
       const instances = im.coordinators();
-      await Promise.all(instances.map(instance => im.shutdown(instance)));
-      await Promise.all(instances.map(instance => im.restart(instance)));
+      try {
+        await Promise.all(instances.map(instance => im.shutdown(instance)));
+        await Promise.all(instances.map(instance => im.restart(instance)));
+      } catch (e) {
+        expect.fail(null, null, 'Failed to restart all coordinators: ' + e);
+      }
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
-      response = await db.route(MOUNT).get();
+      const response = await db.route(MOUNT).get();
       expect(response).to.have.property('body', 'service1');
     });
   });
@@ -105,7 +115,7 @@ describe('Foxx service', function() {
       await db.replaceService(MOUNT, service2);
       await im.restart(coord2);
       db = arangojs(im.getEndpointUrl(coord2));
-      const response = db.route(MOUNT).get();
+      const response = await db.route(MOUNT).get();
       expect(response).to.have.property('body', 'service2');
     });
 
@@ -119,12 +129,15 @@ describe('Foxx service', function() {
       await db.uninstallService(MOUNT);
       await im.restart(coord2);
       db = arangojs(im.getEndpointUrl(coord2));
+      let success = true;
       try {
-        db.route(MOUNT).get();
-        expect.fail();
+        response = await db.route(MOUNT).get();
+        console.log(response);
       } catch (error) {
+        success = false;
         expect(error).to.have.property('code', 404)
       }
+      expect(success).to.equal(false, 'The uninstalled service is still reachable!');
     });
   });
 
@@ -151,7 +164,7 @@ describe('Foxx service', function() {
       await db.replaceService(MOUNT, service2);
       await im.replace(coord2);
       db = arangojs(im.getEndpointUrl(coord2));
-      const response = db.route(MOUNT).get();
+      const response = await db.route(MOUNT).get();
       expect(response).to.have.property('body', 'service2');
     });
 

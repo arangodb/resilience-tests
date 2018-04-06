@@ -65,7 +65,7 @@ class InstanceManager {
           throw e;
         }
       }
-      await new Promise.delay(delay);
+      await sleep(delay);
       delay = delay * 2; if (delay > 8000) { delay = 8000; }
     }
   }
@@ -119,7 +119,7 @@ class InstanceManager {
           throw new Error('Illegal answer from /_api/agency/inquire');
         }
       }
-      await new Promise.delay(delay);
+      await sleep(delay);
       delay = delay * 2; if (delay > 8000) { delay = 8000; }
     }
   }
@@ -308,12 +308,7 @@ class InstanceManager {
         followAllRedirects: true,      
         body: [['/']]
       });
-      let plan = body[0].arango.Plan;
-      let current = body[0].arango.Current;
-      let target = body[0].arango.Target;
-      console.error(JSON.stringify(plan));
-      console.error(JSON.stringify(current));
-      console.error(JSON.stringify(target));
+      console.error(JSON.stringify(body));
     } catch(e) {
       return null;
     }
