@@ -7,13 +7,13 @@ const arangojs = require('arangojs');
 const expect = require('chai').expect;
 const FailoverError = require('../../Errors.js').FailoverError;
 // Wait 100s this is rather long and should retain on slow machines also
-// const MAX_FAILOVER_TIMEOUT_MS = 1000000;
-const MAX_FAILOVER_TIMEOUT_MS = 10000;
+const MAX_FAILOVER_TIMEOUT_MS = 1000000;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const noop = () => {};
 const service1 = readFileSync(join(__dirname, '..', '..', 'fixtures', 'service1.zip'));
 const service2 = readFileSync(join(__dirname, '..', '..', 'fixtures', 'service2.zip'));
+const retryIntervalMS = 10000;
 
 
 describe('Foxx service', function () {
@@ -21,8 +21,6 @@ describe('Foxx service', function () {
   const MOUNT = '/resiliencetestservice';
 
   const waitForLeaderFailover = async function (col, lastLeader) {
-    // const retryIntervalMS = 10000;
-    const retryIntervalMS = 1000;
     let count = 0;
     while (count * retryIntervalMS < MAX_FAILOVER_TIMEOUT_MS) {
       try {
@@ -31,10 +29,8 @@ describe('Foxx service', function () {
           // we got a new leader yay \o/
           return;
         }
-        console.error(newLeader,"vs",lastLeader);
       } catch (e) {
         if (e instanceof FailoverError) {
-          console.error("Failover Error!");
           // This is expected! just continue
         } else {
           // unexpected error throw it
@@ -44,8 +40,31 @@ describe('Foxx service', function () {
       ++count;
       await sleep(retryIntervalMS);
     }
+    console.error("Failover did not happen. Now dumping the Agency State");
     await im.dumpAgency();
     throw new Error(`Failover did not succueed in ${MAX_FAILOVER_TIMEOUT_MS/1000}s`);
+  };
+
+  const waitForLazyCreatedCollections = async function () {
+    let count = 0;
+    while (count * retryIntervalMS < MAX_FAILOVER_TIMEOUT_MS) {
+      try {
+        await im.findPrimaryDbServer("_statistics");
+        await im.findPrimaryDbServer("_statistics15");
+        await im.findPrimaryDbServer("_statisticsRaw");
+        // If we get here we found all three collections
+        // Everything we wanted
+        break;
+      } catch (e) {
+        ++count;
+        await sleep(retryIntervalMS);
+        // Expected, collections may not be created yet. We wait
+      }
+    }
+    if (count * retryIntervalMS >= MAX_FAILOVER_TIMEOUT_MS) {
+      expect(true).to.equal(false, "Did not create statistics collections in a timely manner");
+    }
+    await im.waitForSyncReplication();
   };
 
   beforeEach(() => im.startCluster(1, 2, 2));
@@ -108,14 +127,16 @@ describe('Foxx service', function () {
 
   describe('while primary dbServer is being rebooted', function () {
 
-    it.only('can be installed', async function () {
+    beforeEach(async () => {
+      await waitForLazyCreatedCollections();
+    });
+
+    it('can be installed', async function () {
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
       const primary = await im.findPrimaryDbServer('_apps');
-      console.error("Killing: ", primary.name);
       await im.shutdown(primary);
       await waitForLeaderFailover('_apps', primary);
-      console.error("This run worked");
       await db.installService(MOUNT, service1);
       await im.restart(primary);
       const response = await db.route(MOUNT).get();
