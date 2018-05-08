@@ -69,5 +69,5 @@ Some Examples:
 
 ```
 RESILIENCE_ARANGO_BASEPATH=../arangodb npm run test -- --grep "Move shards"
-RESILIENCE_ARANGO_BASEPATH=../arangodb ARANGO_STORAGE_ENGINE=rocksdb npm run test -- test/shard-move.js 
+RESILIENCE_ARANGO_BASEPATH=../arangodb ARANGO_STORAGE_ENGINE=rocksdb npm run test -- test/cluster/shard-move.js 
 ```

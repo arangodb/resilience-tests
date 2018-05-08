@@ -461,6 +461,7 @@ class InstanceManager {
     debugLog("booting agents...");
 
     let agents = await this.startAgency(agencyOptions);
+    this.waitForInstances(this.agents());
     debugLog("all agents are booted");
 
     await sleep(2000);
@@ -470,6 +471,7 @@ class InstanceManager {
 
     debugLog("booting DBServers...");
     await Promise.all(dbServers);
+    this.waitForInstances(this.dbServers());
     debugLog("all DBServers are booted");
     await sleep(2000);
 
@@ -581,6 +583,15 @@ class InstanceManager {
     return results;
   }
 
+  async waitForInstances(instances) {
+    let allWaiters = instances.map(instance => this.waitForInstance(instance));
+    let results = [];
+    for (let waiter of allWaiters) {
+      results.push(await waiter);
+    }
+    return results;
+  }
+
   getEndpoint(instance) {
     return (instance || this.coordinators()[0]).endpoint;
   }
@@ -609,14 +620,14 @@ class InstanceManager {
     }
   }
 
-  async cleanup() {
+  async cleanup(retainDir) {
     await this.shutdownCluster();
     this.instances = [];
     this.agentCounter = 0;
     this.coordinatorCounter = 0;
     this.dbServerCounter = 0;
     this.singleServerCounter = 0;
-    await this.runner.cleanup();
+    await this.runner.cleanup(retainDir);
     let log = this.currentLog;
     this.currentLog = '';
     return log;
