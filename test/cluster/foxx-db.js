@@ -89,7 +89,7 @@ describe('Foxx service', function () {
       const primary = await im.findPrimaryDbServer('_apps');
       await im.shutdown(primary);
       await im.restart(primary);
-      let response = await db.route(MOUNT).get();
+      const response = await db.route(MOUNT).get();
       expect(response).to.have.property('body', 'service1');
     });
 

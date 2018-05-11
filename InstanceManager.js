@@ -6,19 +6,27 @@ const LocalRunner = require('./LocalRunner.js');
 const DockerRunner = require('./DockerRunner.js');
 const common = require('./common.js');
 const endpointToUrl = common.endpointToUrl;
-const ERR_IN_SHUTDOWN = 30;
+const dd = require('dedent');
+
+// Arango error code for "shutdown in progress"
+const ERROR_SHUTTING_DOWN = 30;
+
 const WAIT_TIMEOUT = 400; // seconds
-const FailoverError = require('./Errors.js').FailoverError;
+const FailoverError = require('./Errors').FailoverError;
 const debugLog = (logLine) => {
   if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
     console.log((new Date()).toISOString(), logLine);
   };
 };
 
-const shutdownKillAttempts = 3600;  // 180s, after this time we kill the instance
-const shutdownMaxAttempts = 4000;   // 200s, note that the cluster internally
-                                    // has a 120s timeout
-const shutdownWaitInterval = 50;    // We check every 50ms if a server is down
+// 180s, after this time we kill -9 the instance
+const shutdownKillAfterSeconds = 180;
+
+// 200s, note that the cluster internally has a 120s timeout
+const shutdownGiveUpAfterSeconds = 200;
+
+// We check every 50ms if a server is down
+const shutdownWaitInterval = 50;
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -258,8 +266,6 @@ class InstanceManager {
     if (options.agencyWaitForSync === undefined) {
       options.agencyWaitForSync = false;
     }
-    const wfs = options.agencyWaitForSync;
-    const instances = [];
     let compactionStep = "200";
     let compactionKeep = "100";
     if (process.env.AGENCY_COMPACTION_STEP) {
@@ -268,8 +274,14 @@ class InstanceManager {
     if (process.env.AGENCY_COMPACTION_KEEP) {
       compactionKeep = process.env.AGENCY_COMPACTION_KEEP;
     }
-    for (var i = 0; i < size; i++) {
+
+    let firstEndpoint = null;
+    let instances = [];
+    for (let i = 0; i < size; i++) {
       const endpoint = await this.runner.createEndpoint();
+      if (firstEndpoint === null) {
+        firstEndpoint = endpoint;
+      }
       const args = [
         '--agency.activate=true',
         '--agency.size=' + size,
@@ -282,12 +294,11 @@ class InstanceManager {
         '--agency.compaction-step-size='+compactionStep,
         '--agency.compaction-keep-size='+compactionKeep,
         '--agency.my-address=' + endpoint,
-        instances.length ?
-          `--agency.endpoint=${instances[0].endpoint}` : `--agency.endpoint=${endpoint}`
+        `--agency.endpoint=${firstEndpoint}`,
       ];
       this.agentCounter++;
       debugLog("booting agency");
-      const instance = await this.startArango(
+      const instance = this.startArango(
         'agency-' + this.agentCounter,
         endpoint,
         'agent',
@@ -295,14 +306,15 @@ class InstanceManager {
       );
       instances.push(instance);
     }
-    return this.instances = instances;
+
+    return this.instances = await Promise.all(instances);
   }
 
   async dumpAgency() {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
 
     try {
-      let body = await rp({
+      const body = await rp({
         method: 'POST', json: true,
         uri: `${baseUrl}/_api/agency/read`,
         followAllRedirects: true,      
@@ -310,7 +322,6 @@ class InstanceManager {
       });
       console.error(JSON.stringify(body));
     } catch(e) {
-      return null;
     }
  
   }
@@ -415,7 +426,7 @@ class InstanceManager {
   
   async findPrimaryDbServer(collectionName) {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
-    let [info] = await this.rpAgency({
+    const [info] = await this.rpAgency({
       method: 'POST',
       uri: baseUrl + '/_api/agency/read',
       json: true,
@@ -454,28 +465,28 @@ class InstanceManager {
   }
 
   async startCluster(numAgents, numCoordinators, numDbServers, options = {}) {
-    let agencyOptions = options.agents || {};
+    const agencyOptions = options.agents || {};
     _.extend(agencyOptions, {agencySize: numAgents});
 
     debugLog(`Starting cluster A:${numAgents} C:${numCoordinators} D:${numDbServers}`);
     debugLog("booting agents...");
 
-    let agents = await this.startAgency(agencyOptions);
-    this.waitForInstances(this.agents());
+    const agents = await this.startAgency(agencyOptions);
+    await this.waitForInstances(this.agents());
     debugLog("all agents are booted");
 
     await sleep(2000);
-    let dbServers = Array.from(Array(numDbServers).keys()).map(index => {
+    const dbServers = Array.from(Array(numDbServers).keys()).map(index => {
       return this.startDbServer('dbServer-' + (index + 1));
     });
 
     debugLog("booting DBServers...");
     await Promise.all(dbServers);
-    this.waitForInstances(this.dbServers());
+    await this.waitForInstances(this.dbServers());
     debugLog("all DBServers are booted");
     await sleep(2000);
 
-    let coordinators = Array.from(
+    const coordinators = Array.from(
       Array(numCoordinators).keys()
     ).map(index => {
       return this.startCoordinator('coordinator-' + (index + 1));
@@ -494,21 +505,18 @@ class InstanceManager {
   async waitForInstance(instance, started = Date.now()) {
     while (true) {
       if (instance.status !== 'RUNNING') {
-        throw new Error(`
+        throw new Error(dd`
           Instance ${instance.name} is down!
           Real status ${instance.status} with exitcode ${instance.exitcode}.
           See logfile here ${instance.logFile}`);
       }
-     
-      let _test_ = Date.now() - started;
-      
-      if (_test_ > WAIT_TIMEOUT * 1000) {
+
+      if (Date.now() - started > WAIT_TIMEOUT * 1000) {
         throw new Error(
           `Instance ${instance.name} is still not ready after ${WAIT_TIMEOUT} secs`
         );
       }
 
-      let ok = false;
       try {
         await rp.get({
           uri: endpointToUrl(instance.endpoint) + '/_api/version'
@@ -524,7 +532,7 @@ class InstanceManager {
     const baseUrl = endpointToUrl(this.getAgencyEndpoint());
     // We wait at most 50s for everything to get in sync
     for (let i = 0; i < 100; ++i) {
-      let [info] = await this.rpAgency({
+      const [info] = await this.rpAgency({
         method: 'POST',
         uri: baseUrl + '/_api/agency/read',
         json: true,
@@ -574,18 +582,14 @@ class InstanceManager {
   }
 
   async waitForAllInstances() {
-    let allWaiters = this.instances.map(instance => this.waitForInstance(instance));
-    let results = [];
-    for (let waiter of allWaiters) {
-      results.push(await waiter);
-    }
+    const results = await this.waitForInstances(this.instances);
     await this.waitForSyncReplication();
     return results;
   }
 
   async waitForInstances(instances) {
-    let allWaiters = instances.map(instance => this.waitForInstance(instance));
-    let results = [];
+    const allWaiters = instances.map(instance => this.waitForInstance(instance));
+    const results = [];
     for (let waiter of allWaiters) {
       results.push(await waiter);
     }
@@ -610,12 +614,10 @@ class InstanceManager {
     debugLog(`Shutting down the cluster`);
     const nonAgents = [...this.coordinators(), ...this.dbServers(), ...this.singleServers()];
 
-    let allWaiters = nonAgents.map(n => this.shutdown(n));
-    for (let waiter of allWaiters) {
+    for (let waiter of nonAgents.map(n => this.shutdown(n))) {
       await waiter;
     }
-    allWaiters = this.agents().map(a => this.shutdown(a));
-    for (let waiter of allWaiters) {
+    for (let waiter of this.agents().map(a => this.shutdown(a))) {
       await waiter;
     }
   }
@@ -660,13 +662,13 @@ class InstanceManager {
       body: [['/arango/Current/ServersRegistered']]
     });
     const servers = info.arango.Current.ServersRegistered;
-    let url = servers[uuid].endpoint;
+    const url = servers[uuid].endpoint;
     return this.instances.filter(inst => inst.endpoint == url).shift();
   }
 
   async assignNewEndpoint(instance) {
-    let index = this.instances.indexOf(instance);
-    if (index === -1) {
+    const instanceIndex = this.instances.indexOf(instance);
+    if (instanceIndex === -1) {
       throw new Error("Couldn't find instance " + instance.name);
     }
 
@@ -680,9 +682,9 @@ class InstanceManager {
       'agency.my-address',
       'cluster.my-address'
     ].filter(arg => {
-      index = instance.args.indexOf('--' + arg + '=' + instance.endpoint);
-      if (index !== -1) {
-        instance.args[index] = '--' + arg + '=' + endpoint;
+      const endpointArgIndex = instance.args.indexOf('--' + arg + '=' + instance.endpoint);
+      if (endpointArgIndex !== -1) {
+        instance.args[endpointArgIndex] = '--' + arg + '=' + endpoint;
       }
     });
 
@@ -698,10 +700,7 @@ class InstanceManager {
 
     instance.process.kill('SIGKILL');
     instance.status = 'KILLED';
-    while (true) {
-      if (instance.status === 'EXITED') {
-        return;
-      }
+    while (instance.status !== 'EXITED') {
       await sleep(50);
     }
   }
@@ -730,35 +729,38 @@ class InstanceManager {
     instance.status = 'RUNNING';
   }
 
-  // Internal function do not call from outsite
+  // Internal function do not call from outside
   async _checkDown(instance) {
     debugLog(`Test if ${instance.name} is down`);
-    let attempts = 0;
-    while (true) {
+    // let attempts = 0;
+    const start = Date.now();
+    let sigkillSent = false;
 
-      // We leave here with return or throw
-      if (instance.status == 'EXITED') {
-        debugLog(`${instance.name} is now gone.`);
-        return instance;
-      }
-   
-      if (++attempts === shutdownKillAttempts) {
+    while (instance.status !== 'EXITED') {
+      const duration = (Date.now() - start) / 1000;
+
+      if (duration >= shutdownKillAfterSeconds && !sigkillSent) {
         debugLog(`Sending SIGKILL to ${instance.name}`);
         instance.process.kill('SIGKILL');
         instance.status = 'KILLED';
-      } else if (attempts > shutdownMaxAttempts) {
-        // Sorry we give up, could not terminate instance with Shutdown and not with SIGKILL
+      }
+
+      if (duration >= shutdownGiveUpAfterSeconds) {
+        // Sorry we give up, could neither terminate instance with Shutdown nor with SIGKILL
         debugLog(`Failed to shutdown and kill ${instance.name}. Aborting.`);
-        throw new Error(instance.name + ' did not stop gracefully after ' + (waitInterval * attempts) + 'ms');
+        throw new Error(`${instance.name} did not stop gracefully after ${duration}s`);
       }
 
       // wait a while and try again.
       await sleep(shutdownWaitInterval);
     }
+
+    debugLog(`${instance.name} is now gone.`);
+    return instance;
   }
 
   async shutdown(instance) {
-    if (instance.status == 'EXITED') {
+    if (instance.status === 'EXITED') {
       return instance;
     }
     debugLog(`Shutdown ${instance.name}`);
@@ -769,21 +771,24 @@ class InstanceManager {
       let expected = false;
       if (err && (err.statusCode === 503 || err.error)) {
         // Some "errors" are expected.
-        let errObj = (err.error instanceof String || typeof err.error === "string") ?
+        let errObj = typeof err.error === "string" ?
                        JSON.parse(err.error) : err.error;
-        if (errObj.code == 'ECONNREFUSED') {
+        if (errObj.code === 'ECONNREFUSED') {
           console.warn('hmmm...server ' + instance.name + ' did not respond (' + JSON.stringify(errObj) + '). Assuming it is dead. Status is: ' + instance.status);
           expected = true;
-        } else if (errObj.code == 'ECONNRESET') {
+        } else if (errObj.code === 'ECONNRESET') {
           expected = true;
         } else if (err.statusCode === 503) {
           console.warn('server ' + instance.name + ' answered 503. Assuming it is shutting down. Status is: ' + instance.status);
           expected = true;
-        } else if (errObj.errorNum === ERR_IN_SHUTDOWN) {
+        } else if (errObj.errorNum === ERROR_SHUTTING_DOWN) {
           expected = true;
         }
         if (!expected) {
-          console.error("Wir hassen den shutdown: ", errObj.errorNum, " so total sehr " , err.error, "wir haben den typ", typeof err.error);
+          console.error(
+            "An unexpected error occured during shutdown. Error code: ",
+            errObj.errorNum, ", error type: ", typeof err.error
+          );
         }
       }
       if (!expected) {

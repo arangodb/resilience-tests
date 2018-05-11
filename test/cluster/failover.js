@@ -5,7 +5,8 @@ const expect = require("chai").expect;
 const arangojs = require("arangojs");
 const rp = require("request-promise");
 const fs = require("fs");
-const ERR_IN_SHUTDOWN = 30;
+// Arango error code for "shutdown in progress"
+const ERROR_SHUTTING_DOWN = 30;
 
 describe("Failover", function() {
   let instanceManager = new InstanceManager("failover");
@@ -121,7 +122,7 @@ describe("Failover", function() {
                   // SHUTDOWN message. So we wait a little while
                   // and try again until SHUTDOWN is gone.
                   // Then failover should be performed
-                  expect(reason.errorNum).to.equal(ERR_IN_SHUTDOWN);
+                  expect(reason.errorNum).to.equal(ERROR_SHUTTING_DOWN);
                   return new Promise((resolve, reject) => {
                     // As we get here only for the second request fail
                     // it is expected that the leader is not reachable
