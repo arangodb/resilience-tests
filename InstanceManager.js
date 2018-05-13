@@ -195,9 +195,10 @@ class InstanceManager {
       });
   }
 
+  // Get a running agency endpoint (fails if there is none)
   getAgencyEndpoint() {
     return this.instances.filter(instance => {
-      return instance.role === 'agent';
+      return instance.role === 'agent' && instance.status === 'RUNNING';
     })[0].endpoint;
   }
 
@@ -332,8 +333,8 @@ class InstanceManager {
   }
 
   /// wait for leader selection (leader key is in agency)
-  async asyncReplicationLeaderSelected(ignore = null) {
-    let i = 250; // 25s should be max 30s according to spec
+  async asyncReplicationLeaderSelected(ignore = null, timeoutSec = 25) {
+    let i = timeoutSec * 10; // should be max 30s according to spec
     while (i-- > 0) {
       let val = await this.asyncReplicationLeaderId();
       if (val !== null && ignore !== val) {

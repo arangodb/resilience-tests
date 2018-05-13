@@ -23,7 +23,7 @@ async function requestEndpoints(url) {
   return body.endpoints;
 };
 
-describe('Testing leader-follower failover', async function() {
+describe('Leader-Follower failover', async function() {
 
   const instanceManager = new InstanceManager('setup');
   
@@ -69,7 +69,7 @@ describe('Testing leader-follower failover', async function() {
       }
     }
   
-    [2, 4, 8].forEach(n => {
+    [2, 4].forEach(n => {
     it(`for ${n} servers`, async function() {
         await instanceManager.startSingleServer('single', n);
         await instanceManager.waitForAllInstances();
@@ -164,8 +164,8 @@ describe('Testing leader-follower failover', async function() {
       expect(i).to.equal(num);
     }
   
-    [100, 1000, 25000].forEach(numDocs => {
-      [2, 4, 8].forEach(n => {
+    [1000, 25000].forEach(numDocs => {
+      [2, 4].forEach(n => {
         let f = n / 2;
         it(`with ${n} servers, ${f} failover, leader restart ${numDocs} documents`, async function() {
           await instanceManager.startSingleServer('single', n);
@@ -203,8 +203,8 @@ describe('Testing leader-follower failover', async function() {
       });
     });//*/
   
-    [100, 1000, 25000].forEach(numDocs => {
-      [2, 4, 8].forEach(n => { // 2, 8
+    [1000, 25000].forEach(numDocs => {
+      [2, 4].forEach(n => {
         let f = n - 1;
         it(`with ${n} servers, ${f} failover, no restart ${numDocs} documents`, async function() {
           await instanceManager.startSingleServer('single', n);

@@ -42,7 +42,7 @@ describe('Testing failing followers', async function() {
   }
 
   [1000, 25000].forEach(numDocs => {
-    for (let n = 4; n <= 8; n *= 2) {
+    [2, 4].forEach(n => {
       let f = n / 2;
       it(`with ${n} servers, ${f} fails ${numDocs}`, async function() {
         await instanceManager.startSingleServer('single', n);
@@ -86,49 +86,49 @@ describe('Testing failing followers', async function() {
           console.log('killed follower instance restarted');
         }
       });
-    }
+    });
   });
 
  [1000, 25000].forEach(numDocs => {
-    for (let n = 2; n <= 8; n *= 2) {
-      let f = n - 1;
-      it(`with ${n} servers, ${f} failover, no restart ${numDocs}`, async function() {
-        await instanceManager.startSingleServer('single', n);
-        await instanceManager.waitForAllInstances();
-  
-        // wait for leader selection
-        let uuid = await instanceManager.asyncReplicationLeaderSelected();
-        let leader = await instanceManager.asyncReplicationLeaderInstance();
-  
-        let db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
-        await generateData(db, numDocs);
-  
-        for (; f > 0; f--) {
-          console.log("Waiting for tick synchronization...");
-          let inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
-          expect(inSync).to.equal(true, "followers did not get in sync before timeout");  
-  
-          // leader should not change
-          expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+   [2, 4].forEach(n => {
+    let f = n - 1;
+    it(`with ${n} servers, ${f} failover, no restart ${numDocs}`, async function() {
+      await instanceManager.startSingleServer('single', n);
+      await instanceManager.waitForAllInstances();
 
-          let followers = instanceManager.singleServers().filter(inst => inst.status === 'RUNNING' && 
-                                                                         inst.endpoint != leader.endpoint);
-          let i = Math.floor(Math.random() * followers.length);
-          let follower = followers[i];
-          console.log('killing follower %s', follower.endpoint);    
-          await instanceManager.kill(follower);
-      
-          await sleep(1000);
-          // leader should not have changed          
-          expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
-          inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
-          expect(inSync).to.equal(true, "followers did not get in sync before timeout");
+      // wait for leader selection
+      let uuid = await instanceManager.asyncReplicationLeaderSelected();
+      let leader = await instanceManager.asyncReplicationLeaderInstance();
 
-          // check the data on the master
-          db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
-          await checkData(db, numDocs);
-        }
-      });
-    }
+      let db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
+      await generateData(db, numDocs);
+
+      for (; f > 0; f--) {
+        console.log("Waiting for tick synchronization...");
+        let inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
+        expect(inSync).to.equal(true, "followers did not get in sync before timeout");  
+
+        // leader should not change
+        expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+
+        let followers = instanceManager.singleServers().filter(inst => inst.status === 'RUNNING' && 
+                                                                       inst.endpoint != leader.endpoint);
+        let i = Math.floor(Math.random() * followers.length);
+        let follower = followers[i];
+        console.log('killing follower %s', follower.endpoint);    
+        await instanceManager.kill(follower);
+    
+        await sleep(1000);
+        // leader should not have changed          
+        expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
+        inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
+        expect(inSync).to.equal(true, "followers did not get in sync before timeout");
+
+        // check the data on the master
+        db = arangojs({ url: endpointToUrl(leader.endpoint), databaseName: '_system' });
+        await checkData(db, numDocs);
+      }
+    });
+   });
   });
 });
