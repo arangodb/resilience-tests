@@ -5,6 +5,7 @@ const createEndpoint = require("./common.js").createEndpoint;
 const tmp = require("tmp");
 const rmRf = require("rimraf-promise");
 const mkdirp = require("mkdirp-promise/lib/node5");
+const fs = require("fs");
 
 class LocalRunner {
   constructor(basePath) {
@@ -20,12 +21,15 @@ class LocalRunner {
     const dir = path.join(this.rootDir, instance.name);
     const dataDir = path.join(dir, 'data');
     const appsDir = path.join(dir, 'apps');
+    const logFile = path.join(dir, 'arangod.log');
+    instance.logFile = logFile;
 
     instance.args.unshift('--configuration=none');
     instance.args.push(...[
       `--javascript.startup-directory=${path.join(this.basePath, 'js')}`,
       `--javascript.app-path=${appsDir}`,
       `--server.endpoint=${instance.endpoint}`,
+      `--log.file=${logFile}`,
       dataDir
     ]);
 
@@ -55,8 +59,18 @@ class LocalRunner {
     return rmRf(path.join(this.rootDir, instance.name));
   }
 
-  cleanup() {
-    return rmRf(this.rootDir);
+  cleanup(retainDir) {
+    if (retainDir) {
+      const newDir = tmp.dirSync({ prefix: "arango-resilience-failure" }).name;
+      console.warn(`Test failed, moving files to ${newDir}`);
+      return fs.rename(this.rootDir, newDir, (err) => {
+        console.error("Renaming failed: ", err);
+        throw new Error();
+      });
+    }
+    else {
+      return rmRf(this.rootDir);
+    }
   }
 }
 

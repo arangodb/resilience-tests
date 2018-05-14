@@ -32,6 +32,17 @@ const MOUNT_1 = '/resiliencetestservice1';
 const MOUNT_2 = '/resiliencetestservice2';
 const MOUNT_3 = '/resiliencetestservice3';
 
+// usable as afterEach hook
+async function afterEachCleanup(that, im) {
+  const currentTest = that.ctx
+    ? that.ctx.currentTest
+    : that.currentTest;
+
+  // .state is "passed" or "failed"
+  const retainDir = currentTest.state === 'failed';
+  await im.cleanup(retainDir).catch(noop);
+}
+
 describe('Foxx service', function() {
   describe(
     'while cluster running',
@@ -202,7 +213,7 @@ function suiteRunningCluster(getEndpointUrl, params) {
       endpointUrl = await getEndpointUrl(im);
       await installUtilService(im);
     });
-    afterEach(() => im.cleanup().catch(noop));
+    afterEach(() => afterEachCleanup(this, im));
 
     it('should be installed on every coordinator', async function() {
       await installAndCheckServices(im, {
@@ -313,7 +324,7 @@ function suiteNewCoordinator(params) {
       await im.startCluster(1, 3, 2);
       await installUtilService(im);
     });
-    afterEach(() => im.cleanup().catch(noop));
+    afterEach(() => afterEachCleanup(this, im));
 
     it('should be installed on every coordinator', async function() {
       await installAndCheckServices(im, {
@@ -435,7 +446,7 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
       coordinatorInstance = await getCoordinatorInstance(im);
       await installUtilService(im);
     });
-    afterEach(() => im.cleanup().catch(noop));
+    afterEach(() => afterEachCleanup(this, im));
 
     it('should be installed on every coordinator', async function() {
       await im.shutdown(coordinatorInstance);
@@ -552,7 +563,7 @@ function suiteReplaceCoordinator(getCoordinatorInstance, params) {
       coordinatorInstance = await getCoordinatorInstance(im);
       await installUtilService(im);
     });
-    afterEach(() => im.cleanup().catch(noop));
+    afterEach(() => afterEachCleanup(this, im));
 
     it('should be installed on every coordinator', async function() {
       const numbCoord = im.coordinators().length;
@@ -673,7 +684,7 @@ function suiteClusterStart(params) {
       await im.startCluster(1, 3, 2);
       await installUtilService(im);
     });
-    afterEach(() => im.cleanup().catch(noop));
+    afterEach(() => afterEachCleanup(this, im));
     it('when missing on any one coordinator should be available on every coordinator', async function() {
       const endpointUrl = await getRandomEndpointUrl(im);
       await installAndCheckServices(im, {
@@ -839,7 +850,7 @@ function suiteDevMode(params) {
       await im.startCluster(1, 3, 2);
       await installUtilService(im);
     });
-    afterEach(() => im.cleanup().catch(noop));
+    afterEach(() => afterEachCleanup(this, im));
 
     it('should be replaced on every coordinator', async function() {
       const endpointUrl = await getRandomEndpointUrl(im);

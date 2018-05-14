@@ -95,7 +95,11 @@ let waitForLeader = function(agents) {
       }
       return result.leaderId;
     })
-    .catch(() => {
+    .catch((err) => {
+      if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+        console.log((new Date()).toISOString()
+          + " the agents throw an error: " + err);
+      }
       return new Promise((resolve, reject) => {
         setTimeout(resolve, 100);
       }).then(() => {
@@ -105,6 +109,10 @@ let waitForLeader = function(agents) {
 };
 
 let getLeaderInstance = function(agents) {
+  if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+    console.log((new Date()).toISOString()
+      + " getting leader instance");
+  }
   return waitForLeader(agents).then(leaderId => {
     return agents.reduce((leaderInstance, agent) => {
       if (leaderInstance) {
@@ -133,9 +141,17 @@ describe("Agency", function() {
       return instanceManager
         .startAgency({ agencySize: agentCount, agencyWaitForSync: true })
         .then(agents => {
+          if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+            console.log((new Date()).toISOString()
+              + " successful started agents");
+          }
           let data = [[ { hans: "wurst" } ]];
           return getLeaderInstance(agents)
             .then(leaderInstance => {
+              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+                console.log((new Date()).toISOString()
+                  + "we got a leader");
+              }
               return writeData(leaderInstance, data).then(() => {
                 return leaderInstance;
               });
@@ -154,16 +170,28 @@ describe("Agency", function() {
               expect(result).to.eql(data[0]);
             })
             .then(() => {
+              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+                console.log((new Date()).toISOString()
+                  + " shutdown agents");
+              }
               return Promise.all(
                 agents.map(agent => instanceManager.shutdown(agent))
               );
             })
             .then(() => {
+              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+                console.log((new Date()).toISOString()
+                  + " reboot agents");
+              }
               return Promise.all(
                 agents.map(agent => instanceManager.restart(agent))
               );
             })
             .then(() => {
+              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+                console.log((new Date()).toISOString()
+                  + " reboot done");
+              }
               return getLeaderInstance(agents);
             })
             .then(leaderInstance => {
@@ -176,6 +204,10 @@ describe("Agency", function() {
               });
             })
             .then(result => {
+              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+                console.log((new Date()).toISOString()
+                  + " agency did respond");
+              }
               expect(result).to.be.instanceof(Array);
               expect(result).to.eql(data[0]);
             });
