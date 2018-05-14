@@ -5,6 +5,8 @@ const expect = require("chai").expect;
 const arangojs = require("arangojs");
 const rp = require("request-promise");
 const fs = require("fs");
+// Arango error code for "shutdown in progress"
+const ERROR_SHUTTING_DOWN = 30;
 
 describe("Failover", function() {
   let instanceManager = new InstanceManager("failover");
@@ -96,6 +98,7 @@ describe("Failover", function() {
       };
     });
     let failures = 0;
+    let inRetry = false;
     return getLeader()
       .then(dbServer => {
         let slicedImport = function(index) {
@@ -105,6 +108,7 @@ describe("Failover", function() {
               .collection("testcollection")
               .import(docs.slice(index, index + count))
               .then(result => {
+                inRetry = false;
                 return new Promise((resolve, reject) => {
                   setTimeout(resolve, 100);
                 }).then(() => {
@@ -112,7 +116,30 @@ describe("Failover", function() {
                 });
               })
               .catch(reason => {
+                if (inRetry) {
+                  // In this phase the server is performing the failover.
+                  // Until the failover is recognized Arango will forward the
+                  // SHUTDOWN message. So we wait a little while
+                  // and try again until SHUTDOWN is gone.
+                  // Then failover should be performed
+                  expect(reason.errorNum).to.equal(ERROR_SHUTTING_DOWN);
+                  return new Promise((resolve, reject) => {
+                    // As we get here only for the second request fail
+                    // it is expected that the leader is not reachable
+                    setTimeout(resolve, 100);
+                  }).then(() => {
+                    // => It is safe to assume that the import did
+                    // not work at all. So try again with the same slice
+                    return slicedImport(index);
+                  });
+                }
+                // Ok first error during import.
+                // The failover has just begun...
                 failures++;
+                inRetry = true;
+                // It is undefined what happened to this slice
+                // it may either be inserted or not, depending
+                // on the timestamp where the server shut down.
                 return slicedImport(index + count);
               });
           } else {

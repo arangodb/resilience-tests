@@ -45,9 +45,9 @@ ansi-styles@^3.0.0:
   dependencies:
     color-convert "^1.0.0"
 
-arangojs@^5.0.3:
-  version "5.6.1"
-  resolved "https://registry.yarnpkg.com/arangojs/-/arangojs-5.6.1.tgz#c51ca877f9d24e0796877528ca82cbecdb279c42"
+arangojs@^5.2.0:
+  version "5.8.0"
+  resolved "https://registry.yarnpkg.com/arangojs/-/arangojs-5.8.0.tgz#5a84214209ea2cb9d2d25415213c2add28335ba8"
   dependencies:
     es6-error "^4.0.1"
     http-errors "^1.6.1"
@@ -332,6 +332,10 @@ debug@2.6.0, debug@^2.1.1, debug@^2.2.0:
 debug@~0.7.4:
   version "0.7.4"
   resolved "https://registry.yarnpkg.com/debug/-/debug-0.7.4.tgz#06e1ea8082c2cb14e39806e22e2f6f757f92af39"
+
+dedent@^0.7.0:
+  version "0.7.0"
+  resolved "https://registry.yarnpkg.com/dedent/-/dedent-0.7.0.tgz#2495ddbaf6eb874abb0e1be9df22d2e5a544326c"
 
 deep-eql@^0.1.3:
   version "0.1.3"
