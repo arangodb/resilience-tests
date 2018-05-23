@@ -9,47 +9,50 @@ const fs = require("fs");
 const ERROR_SHUTTING_DOWN = 30;
 
 describe("Failover", function() {
-  let instanceManager = new InstanceManager("failover");
+  let instanceManager = InstanceManager.create();
   let db;
 
   let getLeader = function() {
-    return instanceManager.rpAgency({
-      method: "POST",
-      url: instanceManager.getEndpointUrl(instanceManager.agents()[0]) +
-        "/_api/agency/read",
-      json: true,
-      body: [["/"]]
-    }).then(data => {
-      let plan = data[0].arango.Plan;
+    return instanceManager
+      .rpAgency({
+        method: "POST",
+        url:
+          instanceManager.getEndpointUrl(instanceManager.agents()[0]) +
+          "/_api/agency/read",
+        json: true,
+        body: [["/"]]
+      })
+      .then(data => {
+        let plan = data[0].arango.Plan;
 
-      let plannedCollection = Object.keys(
-        plan.Collections["_system"]
-      ).reduce((result, cid) => {
-        if (result) {
-          return result;
-        }
+        let plannedCollection = Object.keys(
+          plan.Collections["_system"]
+        ).reduce((result, cid) => {
+          if (result) {
+            return result;
+          }
 
-        if (plan.Collections["_system"][cid].name == "testcollection") {
-          return plan.Collections["_system"][cid];
-        }
-        return undefined;
-      }, undefined);
-      let shardName = Object.keys(plannedCollection.shards)[0];
-      let leaderId = plannedCollection.shards[shardName][0];
-      let leaderEndpoint =
-        data[0].arango.Current.ServersRegistered[leaderId].endpoint;
-      return instanceManager.dbServers().reduce((found, server) => {
-        if (found) {
-          return found;
-        }
+          if (plan.Collections["_system"][cid].name == "testcollection") {
+            return plan.Collections["_system"][cid];
+          }
+          return undefined;
+        }, undefined);
+        let shardName = Object.keys(plannedCollection.shards)[0];
+        let leaderId = plannedCollection.shards[shardName][0];
+        let leaderEndpoint =
+          data[0].arango.Current.ServersRegistered[leaderId].endpoint;
+        return instanceManager.dbServers().reduce((found, server) => {
+          if (found) {
+            return found;
+          }
 
-        if (server.endpoint == leaderEndpoint) {
-          return server;
-        }
+          if (server.endpoint == leaderEndpoint) {
+            return server;
+          }
 
-        return undefined;
-      }, undefined);
-    });
+          return undefined;
+        }, undefined);
+      });
   };
   beforeEach(function() {
     return instanceManager.startCluster(1, 2, 2).then(() => {
@@ -146,7 +149,10 @@ describe("Failover", function() {
             return Promise.resolve();
           }
         };
-        return Promise.all([slicedImport(0), instanceManager.shutdown(dbServer)]);
+        return Promise.all([
+          slicedImport(0),
+          instanceManager.shutdown(dbServer)
+        ]);
       })
       .then(() => {
         return db.collection("testcollection").count();

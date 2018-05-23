@@ -6,7 +6,7 @@ const arangojs = require("arangojs");
 const rp = require("request-promise");
 
 describe("Remove servers", function() {
-  let instanceManager = new InstanceManager("remove servers");
+  let instanceManager = InstanceManager.create();
   before(function(done) {
     // should really be implemented somewhere more central :S
     instanceManager
@@ -49,8 +49,8 @@ describe("Remove servers", function() {
       .coordinators()
       .filter(server => server.status == "RUNNING")[0];
     return rp({
-      url: instanceManager.getEndpointUrl(coordinator) +
-        "/_admin/cluster/health",
+      url:
+        instanceManager.getEndpointUrl(coordinator) + "/_admin/cluster/health",
       json: true
     })
       .then(health => {
@@ -92,8 +92,8 @@ describe("Remove servers", function() {
       .coordinators()
       .filter(server => server.status == "RUNNING")[0];
     return rp({
-      url: instanceManager.getEndpointUrl(coordinator) +
-        "/_admin/cluster/health",
+      url:
+        instanceManager.getEndpointUrl(coordinator) + "/_admin/cluster/health",
       json: true
     })
       .then(health => {
@@ -160,8 +160,8 @@ describe("Remove servers", function() {
           return health[serverId].Role == "Coordinator";
         })[0];
         return rp({
-          url: instanceManager.getEndpointUrl() +
-            "/_admin/cluster/removeServer",
+          url:
+            instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
           json: true,
           method: "post",
           body: serverId
@@ -185,8 +185,8 @@ describe("Remove servers", function() {
       .startCluster(1, 2, 2)
       .then(() => {
         return rp({
-          url: instanceManager.getEndpointUrl() +
-            "/_admin/cluster/removeServer",
+          url:
+            instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
           json: true,
           method: "post",
           body: "der hund"
@@ -236,8 +236,8 @@ describe("Remove servers", function() {
       })
       .then(serverId => {
         return rp({
-          url: instanceManager.getEndpointUrl() +
-            "/_admin/cluster/removeServer",
+          url:
+            instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
           json: true,
           method: "post",
           body: serverId
@@ -287,8 +287,8 @@ describe("Remove servers", function() {
       })
       .then(serverId => {
         return rp({
-          url: instanceManager.getEndpointUrl() +
-            "/_admin/cluster/removeServer",
+          url:
+            instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
           json: true,
           method: "post",
           body: serverId
