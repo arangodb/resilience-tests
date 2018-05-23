@@ -7,7 +7,6 @@ const endpointToUrl = require('../../common.js').endpointToUrl;
 const rp = require('request-promise');
 const arangojs = require('arangojs');
 const expect = require('chai').expect;
-const sleep = (ms= 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
 // <copied from agency.js>
 let agencyRequest = function(options) {
@@ -70,20 +69,6 @@ let getLeadAgentInstance = function(agents) {
   });
 };
 // </copied from agency.js>
-
-/// return the list of endpoints, in a normal cluster this is the list of
-/// coordinator endpoints.
-async function requestEndpoints(url) {
-  url = endpointToUrl(url);
-  const body = await rp.get({ uri: `${url}/_api/cluster/endpoints`, json: true});
-  if (body.error ) {
-    throw new Error(body);
-  }
-  if (!body.endpoints || body.endpoints.length == 0) {
-    throw new Error(`AsyncReplication: not all servers ready. Have ${body.endpoints.length} servers`);
-  }
-  return body.endpoints;
-};
 
 describe('Leader-Follower failover + agency outage', async function() {
 
