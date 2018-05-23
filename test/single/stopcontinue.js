@@ -66,7 +66,7 @@ describe('Temporary stopping', async function() {
 
   // sigstop master and wait for failover
   [100, 1000, 10000].forEach(numDocs => {
-    [4, 6, 8].forEach(n => {
+    [4, 6].forEach(n => {
       let f = n / 2;
       it(`single leader with ${n - 1} followers ${f} times, ${numDocs}`, async function() {
         await instanceManager.startSingleServer('single', n);
