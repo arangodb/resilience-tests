@@ -11,6 +11,12 @@ exports.create = () => {
     pathOrImage = process.env.RESILIENCE_DOCKER_IMAGE;
     runner = "docker";
   }
+  if (!runner) {
+    throw new Error(
+      'Must specify RESILIENCE_ARANGO_BASEPATH (source root dir including a "build" folder containing compiled binaries or RESILIENCE_DOCKER_IMAGE to test a docker container'
+    );
+  }
+
   let storageEngine;
   if (process.env.ARANGO_STORAGE_ENGINE) {
     storageEngine = process.env.ARANGO_STORAGE_ENGINE;
