@@ -5,7 +5,7 @@ const expect = require("chai").expect;
 const arangojs = require("arangojs");
 
 describe("Setup", function() {
-  let instanceManager = new InstanceManager("setup");
+  let instanceManager = InstanceManager.create();
   it("should be possible to stop and restart a cluster", function() {
     let db;
     return instanceManager

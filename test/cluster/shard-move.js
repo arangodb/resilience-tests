@@ -6,7 +6,7 @@ const arangojs = require("arangojs");
 const rp = require("request-promise");
 
 describe("Move shards", function() {
-  let instanceManager = new InstanceManager("shard-move");
+  let instanceManager = InstanceManager.create();
   let db;
   let servers = [];
   before(function() {
@@ -23,7 +23,8 @@ describe("Move shards", function() {
       })
       .then(() => {
         return rp({
-          url: instanceManager.getEndpointUrl() +
+          url:
+            instanceManager.getEndpointUrl() +
             "/_db/_system/_admin/aardvark/cluster/DBServers",
           json: true
         });
@@ -46,101 +47,113 @@ describe("Move shards", function() {
 
       let waitShardMoved = function(newLeader, numServers, num) {
         if (num > 10000) {
-          return Promise.reject(new Error(
-            "Shard did not come into sync after " +
-              num +
-              " tries. " + newLeader
-          ));
+          return Promise.reject(
+            new Error(
+              "Shard did not come into sync after " +
+                num +
+                " tries. " +
+                newLeader
+            )
+          );
         }
         return rp({
-          url: instanceManager.getEndpointUrl() +
+          url:
+            instanceManager.getEndpointUrl() +
             "/_db/_system/_admin/cluster/shardDistribution",
           json: true
         })
-        .then(shardDistribution => {
-          let currentShards = shardDistribution.results.testcollection.Current;
-          let shardKey = Object.keys(currentShards)[0];
-          // upon leader resign this might be undefined
-          let currentServers = [];
-          if (currentShards[shardKey].leader) {
-            currentServers.push(currentShards[shardKey].leader);
-          }
+          .then(shardDistribution => {
+            let currentShards =
+              shardDistribution.results.testcollection.Current;
+            let shardKey = Object.keys(currentShards)[0];
+            // upon leader resign this might be undefined
+            let currentServers = [];
+            if (currentShards[shardKey].leader) {
+              currentServers.push(currentShards[shardKey].leader);
+            }
 
-          let plannedShards = shardDistribution.results.testcollection.Plan;
-          let plannedServers = [];
-          if (plannedShards[shardKey].leader) {
-            plannedServers.push(plannedShards[shardKey].leader);
-          }
-          return [
-            plannedServers.concat(plannedShards[shardKey].followers),
-            currentServers.concat(currentShards[shardKey].followers),
-          ];
-        })
-        .then(result => {
-          let planned = result[0];
-          let current = result[1];
+            let plannedShards = shardDistribution.results.testcollection.Plan;
+            let plannedServers = [];
+            if (plannedShards[shardKey].leader) {
+              plannedServers.push(plannedShards[shardKey].leader);
+            }
+            return [
+              plannedServers.concat(plannedShards[shardKey].followers),
+              currentServers.concat(currentShards[shardKey].followers)
+            ];
+          })
+          .then(result => {
+            let planned = result[0];
+            let current = result[1];
 
-          return (
-            current.length == numServers &&
-            current.length == planned.length &&
-            current[0] === newLeader &&
-            current.every((server, index) => planned[index] == server)
-          );
-        })
-        .then(finished => {
-          if (!finished) {
-            return new Promise((resolve, reject) => {
-              setTimeout(resolve, 100);
-            }).then(() => {
-              return waitShardMoved(newLeader, numServers, num + 1);
-            });
-          }
-        });
+            return (
+              current.length == numServers &&
+              current.length == planned.length &&
+              current[0] === newLeader &&
+              current.every((server, index) => planned[index] == server)
+            );
+          })
+          .then(finished => {
+            if (!finished) {
+              return new Promise((resolve, reject) => {
+                setTimeout(resolve, 100);
+              }).then(() => {
+                return waitShardMoved(newLeader, numServers, num + 1);
+              });
+            }
+          });
       };
 
       return rp({
-        url: instanceManager.getEndpointUrl() +
+        url:
+          instanceManager.getEndpointUrl() +
           "/_db/_system/_admin/cluster/shardDistribution",
         json: true
       })
-      .then(shardDistribution => {
-        let shards = shardDistribution.results.testcollection.Plan;
-        let shardKey = Object.keys(shards)[0];
-        let is = [shards[shardKey].leader].concat(shards[shardKey].followers);
-        let freeServer = servers.filter(
-          server => is.indexOf(server.name) == -1
-        )[0];
+        .then(shardDistribution => {
+          let shards = shardDistribution.results.testcollection.Plan;
+          let shardKey = Object.keys(shards)[0];
+          let is = [shards[shardKey].leader].concat(shards[shardKey].followers);
+          let freeServer = servers.filter(
+            server => is.indexOf(server.name) == -1
+          )[0];
 
-        if (freeServer === undefined) {
-          throw new Error('Don\'t have a free server! Servers: ' + JSON.stringify(servers) + ', current: ' + JSON.stringify(is));
-        }
-        let should = is.slice();
-        should[0] = freeServer.name;
-        let move = {
-          collection: "testcollection",
-          database: "_system",
-          shard: shardKey,
-          fromServer: servers.filter(
-            server => server.name == shards[shardKey].leader
-          )[0].id,
-          toServer: freeServer.id
-        };
-        return rp({
-          url: instanceManager.getEndpointUrl() +
-            "/_db/_system/_admin/cluster/moveShard",
-          json: true,
-          body: move,
-          method: "POST"
-        }).then(() => {
-          return should;
+          if (freeServer === undefined) {
+            throw new Error(
+              "Don't have a free server! Servers: " +
+                JSON.stringify(servers) +
+                ", current: " +
+                JSON.stringify(is)
+            );
+          }
+          let should = is.slice();
+          should[0] = freeServer.name;
+          let move = {
+            collection: "testcollection",
+            database: "_system",
+            shard: shardKey,
+            fromServer: servers.filter(
+              server => server.name == shards[shardKey].leader
+            )[0].id,
+            toServer: freeServer.id
+          };
+          return rp({
+            url:
+              instanceManager.getEndpointUrl() +
+              "/_db/_system/_admin/cluster/moveShard",
+            json: true,
+            body: move,
+            method: "POST"
+          }).then(() => {
+            return should;
+          });
+        })
+        .then(should => {
+          return waitShardMoved(should[0], should.length, 1);
+        })
+        .then(() => {
+          return moveShards();
         });
-      })
-      .then(should => {
-        return waitShardMoved(should[0], should.length, 1);
-      })
-      .then(() => {
-        return moveShards();
-      });
     };
 
     let insertDocuments = function() {
@@ -171,15 +184,28 @@ describe("Move shards", function() {
       })
       .then(all => {
         all = all.map(doc => doc.hallooo);
-        all.sort((a, b) => { if (a < b) { return -1; }
-                             else if (a > b) { return 1; }
-                             else { return 0; } });
-        
-        let errorMsg = '';
+        all.sort((a, b) => {
+          if (a < b) {
+            return -1;
+          } else if (a > b) {
+            return 1;
+          } else {
+            return 0;
+          }
+        });
+
+        let errorMsg = "";
         if (all.length !== 10000) {
           for (let i = 0; i < all.length; ++i) {
             if (all[i] !== i) {
-              errorMsg += "At position " + i + " we got " + all[i] + " instead of " + i + "\n";
+              errorMsg +=
+                "At position " +
+                i +
+                " we got " +
+                all[i] +
+                " instead of " +
+                i +
+                "\n";
             }
           }
         }

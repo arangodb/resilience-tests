@@ -1,7 +1,7 @@
 /* global describe, it, beforeEach, afterEach */
 "use strict";
 const InstanceManager = require("../../InstanceManager.js");
-const endpointToUrl = require("../../common.js").endpointToUrl;
+const endpointToUrl = InstanceManager.endpointToUrl;
 
 const expect = require("chai").expect;
 const rp = require("request-promise");
@@ -95,10 +95,11 @@ let waitForLeader = function(agents) {
       }
       return result.leaderId;
     })
-    .catch((err) => {
+    .catch(err => {
       if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-        console.log((new Date()).toISOString()
-          + " the agents throw an error: " + err);
+        console.log(
+          new Date().toISOString() + " the agents throw an error: " + err
+        );
       }
       return new Promise((resolve, reject) => {
         setTimeout(resolve, 100);
@@ -110,8 +111,7 @@ let waitForLeader = function(agents) {
 
 let getLeaderInstance = function(agents) {
   if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-    console.log((new Date()).toISOString()
-      + " getting leader instance");
+    console.log(new Date().toISOString() + " getting leader instance");
   }
   return waitForLeader(agents).then(leaderId => {
     return agents.reduce((leaderInstance, agent) => {
@@ -132,7 +132,7 @@ let getLeaderInstance = function(agents) {
 };
 
 describe("Agency", function() {
-  let instanceManager = new InstanceManager("agency");
+  let instanceManager = InstanceManager.create();
   let leader;
   let followers;
 
@@ -142,15 +142,18 @@ describe("Agency", function() {
         .startAgency({ agencySize: agentCount, agencyWaitForSync: true })
         .then(agents => {
           if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-            console.log((new Date()).toISOString()
-              + " successful started agents");
+            console.log(
+              new Date().toISOString() + " successful started agents"
+            );
           }
-          let data = [[ { hans: "wurst" } ]];
+          let data = [[{ hans: "wurst" }]];
           return getLeaderInstance(agents)
             .then(leaderInstance => {
-              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-                console.log((new Date()).toISOString()
-                  + "we got a leader");
+              if (
+                process.env.LOG_IMMEDIATE &&
+                process.env.LOG_IMMEDIATE == "1"
+              ) {
+                console.log(new Date().toISOString() + "we got a leader");
               }
               return writeData(leaderInstance, data).then(() => {
                 return leaderInstance;
@@ -159,8 +162,8 @@ describe("Agency", function() {
             .then(leaderInstance => {
               return agencyRequest({
                 method: "POST",
-                url: endpointToUrl(leaderInstance.endpoint) +
-                  "/_api/agency/read",
+                url:
+                  endpointToUrl(leaderInstance.endpoint) + "/_api/agency/read",
                 json: true,
                 body: [["/"]]
               });
@@ -170,43 +173,51 @@ describe("Agency", function() {
               expect(result).to.eql(data[0]);
             })
             .then(() => {
-              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-                console.log((new Date()).toISOString()
-                  + " shutdown agents");
+              if (
+                process.env.LOG_IMMEDIATE &&
+                process.env.LOG_IMMEDIATE == "1"
+              ) {
+                console.log(new Date().toISOString() + " shutdown agents");
               }
               return Promise.all(
                 agents.map(agent => instanceManager.shutdown(agent))
               );
             })
             .then(() => {
-              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-                console.log((new Date()).toISOString()
-                  + " reboot agents");
+              if (
+                process.env.LOG_IMMEDIATE &&
+                process.env.LOG_IMMEDIATE == "1"
+              ) {
+                console.log(new Date().toISOString() + " reboot agents");
               }
               return Promise.all(
                 agents.map(agent => instanceManager.restart(agent))
               );
             })
             .then(() => {
-              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-                console.log((new Date()).toISOString()
-                  + " reboot done");
+              if (
+                process.env.LOG_IMMEDIATE &&
+                process.env.LOG_IMMEDIATE == "1"
+              ) {
+                console.log(new Date().toISOString() + " reboot done");
               }
               return getLeaderInstance(agents);
             })
             .then(leaderInstance => {
               return agencyRequest({
                 method: "POST",
-                url: endpointToUrl(leaderInstance.endpoint) +
-                  "/_api/agency/read",
+                url:
+                  endpointToUrl(leaderInstance.endpoint) + "/_api/agency/read",
                 json: true,
                 body: [["/"]]
               });
             })
             .then(result => {
-              if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-                console.log((new Date()).toISOString()
-                  + " agency did respond");
+              if (
+                process.env.LOG_IMMEDIATE &&
+                process.env.LOG_IMMEDIATE == "1"
+              ) {
+                console.log(new Date().toISOString() + " agency did respond");
               }
               expect(result).to.be.instanceof(Array);
               expect(result).to.eql(data[0]);
@@ -258,7 +269,7 @@ describe("Agency", function() {
     });
 
     it("should failover when stopping the leader", function() {
-      let data = [[ { hans: "wurst" } ]];
+      let data = [[{ hans: "wurst" }]];
       return writeData(leader, data)
         .then(() => {
           return instanceManager.shutdown(leader);
@@ -281,7 +292,7 @@ describe("Agency", function() {
     });
 
     it("should not think it is the leader after a restart", function() {
-      let data = [[ { hans: "wurst" } ]];
+      let data = [[{ hans: "wurst" }]];
       return writeData(leader, data)
         .then(() => {
           return instanceManager.shutdown(leader);
@@ -304,7 +315,8 @@ describe("Agency", function() {
                     url: endpointToUrl(leader.endpoint) + "/_api/agency/config"
                   }),
                   rp({
-                    url: endpointToUrl(followers[0].endpoint) +
+                    url:
+                      endpointToUrl(followers[0].endpoint) +
                       "/_api/agency/config"
                   })
                 ]).then(results => {
@@ -332,7 +344,7 @@ describe("Agency", function() {
         });
     });
     it("should reintegrate a crashed follower", function() {
-      let data = [[ { koeln: "sued" } ]];
+      let data = [[{ koeln: "sued" }]];
       return writeData(leader, data)
         .then(() => {
           return instanceManager.kill(followers[0]);
@@ -369,9 +381,11 @@ describe("Agency", function() {
             err => {
               if (retries++ > maxRetries) {
                 return Promise.reject(
-                  new Error("Couldn't find leader after " + retries + " retries")
+                  new Error(
+                    "Couldn't find leader after " + retries + " retries"
+                  )
                 );
-              } else if (err.code == 'ECONNRESET' || err.statusCode == 503) {
+              } else if (err.code == "ECONNRESET" || err.statusCode == 503) {
                 return new Promise((resolve, reject) => {
                   setTimeout(function() {
                     retryUntilUpInner(fn).then(resolve, reject);
@@ -389,8 +403,8 @@ describe("Agency", function() {
       for (let i = 0; i < instanceManager.instances.length * 2; i++) {
         promise = (function(promise, i) {
           return promise.then(() => {
-            let data = [[ { subba: { op: "increment" } }, {}, "funny"+i ]];
-            let data2 = [[ { dummy: 1 } ]];
+            let data = [[{ subba: { op: "increment" } }, {}, "funny" + i]];
+            let data2 = [[{ dummy: 1 }]];
             let instance =
               instanceManager.instances[i % instanceManager.instances.length];
 
@@ -402,7 +416,7 @@ describe("Agency", function() {
                   method: "POST",
                   url: endpointToUrl(instance.endpoint) + "/_api/agency/write",
                   json: true,
-                  body: data,
+                  body: data
                 });
               })
               .then(() => {
@@ -447,8 +461,8 @@ describe("Agency", function() {
           return waitForReintegration(followers[0].endpoint)
             .then(() => {
               return rp({
-                url: endpointToUrl(followers[0].endpoint) +
-                  "/_api/agency/config",
+                url:
+                  endpointToUrl(followers[0].endpoint) + "/_api/agency/config",
                 json: true
               });
             })

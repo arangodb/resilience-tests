@@ -5,7 +5,7 @@ const expect = require("chai").expect;
 const arangojs = require("arangojs");
 
 describe("ClusterResilience", function() {
-  let instanceManager = new InstanceManager("cluster_resilience");
+  let instanceManager = InstanceManager.create();
   let db;
   before(function() {
     return instanceManager.startCluster(3, 2, 2).then(() => {

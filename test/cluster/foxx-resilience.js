@@ -1,73 +1,73 @@
 /* global describe, it, beforeEach, afterEach */
-'use strict';
-const join = require('path').join;
-const readFileSync = require('fs').readFileSync;
-const InstanceManager = require('../../InstanceManager');
-const arangojs = require('arangojs');
+"use strict";
+const join = require("path").join;
+const readFileSync = require("fs").readFileSync;
+const InstanceManager = require("../../InstanceManager");
+const arangojs = require("arangojs");
 const aql = arangojs.aql;
-const expect = require('chai').expect;
+const expect = require("chai").expect;
 
 const noop = () => {};
 const service1 = readFileSync(
-  join(__dirname, '..', '..', 'fixtures', 'service1.zip')
+  join(__dirname, "..", "..", "fixtures", "service1.zip")
 );
 const service2 = readFileSync(
-  join(__dirname, '..', '..', 'fixtures', 'service2.zip')
+  join(__dirname, "..", "..", "fixtures", "service2.zip")
 );
-const utilService = readFileSync(join(__dirname, '..', '..', 'fixtures', 'util.zip'));
-const UTIL_MOUNT = '/util';
-const SERVICE_1_CHECKSUM = '69d01a5c';
-const SERVICE_2_CHECKSUM = '23b806e2';
-const SERVICE_1_RESULT = 'service1';
-const SERVICE_2_RESULT = 'service2';
+const utilService = readFileSync(
+  join(__dirname, "..", "..", "fixtures", "util.zip")
+);
+const UTIL_MOUNT = "/util";
+const SERVICE_1_CHECKSUM = "69d01a5c";
+const SERVICE_2_CHECKSUM = "23b806e2";
+const SERVICE_1_RESULT = "service1";
+const SERVICE_2_RESULT = "service2";
 const SERVICE_CONFIG = {
-  currency: 'test1',
-  secretKey: 'test2'
+  currency: "test1",
+  secretKey: "test2"
 };
 const SERVICE_DEPENDENCIES = {
-  mySessions: 'test1',
-  myAuth: 'test2'
+  mySessions: "test1",
+  myAuth: "test2"
 };
-const MOUNT_1 = '/resiliencetestservice1';
-const MOUNT_2 = '/resiliencetestservice2';
-const MOUNT_3 = '/resiliencetestservice3';
+const MOUNT_1 = "/resiliencetestservice1";
+const MOUNT_2 = "/resiliencetestservice2";
+const MOUNT_3 = "/resiliencetestservice3";
 
 // usable as afterEach hook
 async function afterEachCleanup(that, im) {
-  const currentTest = that.ctx
-    ? that.ctx.currentTest
-    : that.currentTest;
+  const currentTest = that.ctx ? that.ctx.currentTest : that.currentTest;
 
   // .state is "passed" or "failed"
-  const retainDir = currentTest.state === 'failed';
+  const retainDir = currentTest.state === "failed";
   await im.cleanup(retainDir).catch(noop);
 }
 
-describe('Foxx service', function() {
+describe("Foxx service", function() {
   describe(
-    'while cluster running',
+    "while cluster running",
     suiteRunningClusterDifferentServiceSetups(getRandomEndpointUrl)
   );
 
   describe(
-    'after new coordinator added',
+    "after new coordinator added",
     suiteNewCoordinatorDifferentServiceSetups()
   );
 
   describe(
-    'after coordinator rebooted',
+    "after coordinator rebooted",
     suiteRebootCoordinatorDifferentServiceSetup(getRandomCoordinator)
   );
 
   describe(
-    'after coordinator replaced',
+    "after coordinator replaced",
     suiteReplaceCoordinatorDifferentServiceSetup(getRandomCoordinator)
   );
 
-  describe('after cluster start', suiteClusterStartDifferentServiceSetups());
+  describe("after cluster start", suiteClusterStartDifferentServiceSetups());
 
   describe(
-    'after development mode disabled',
+    "after development mode disabled",
     suiteDevModeDifferentServiceSetups()
   );
 });
@@ -75,7 +75,7 @@ describe('Foxx service', function() {
 function suiteRunningClusterDifferentServiceSetups(getEndpointUrl) {
   return function() {
     describe(
-      'with 1 service involved',
+      "with 1 service involved",
       suiteRunningCluster(getEndpointUrl, {
         servicesToInstall: [
           {
@@ -122,7 +122,7 @@ function suiteRunningClusterDifferentServiceSetups(getEndpointUrl) {
       })
     );
     describe(
-      'with 2 services involved',
+      "with 2 services involved",
       suiteRunningCluster(getEndpointUrl, {
         servicesToInstall: [
           {
@@ -205,7 +205,7 @@ function suiteRunningClusterDifferentServiceSetups(getEndpointUrl) {
 
 function suiteRunningCluster(getEndpointUrl, params) {
   return function() {
-    const im = new InstanceManager();
+    const im = InstanceManager.create();
     let endpointUrl;
 
     beforeEach(async function() {
@@ -215,14 +215,14 @@ function suiteRunningCluster(getEndpointUrl, params) {
     });
     afterEach(() => afterEachCleanup(this, im));
 
-    it('should be installed on every coordinator', async function() {
+    it("should be installed on every coordinator", async function() {
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall
       });
     });
 
-    it('should be replaced on every coordinator', async function() {
+    it("should be replaced on every coordinator", async function() {
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall
@@ -233,7 +233,7 @@ function suiteRunningCluster(getEndpointUrl, params) {
       });
     });
 
-    it('should be upgraded on every coordinator', async function() {
+    it("should be upgraded on every coordinator", async function() {
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall
@@ -244,7 +244,7 @@ function suiteRunningCluster(getEndpointUrl, params) {
       });
     });
 
-    it('should be uninstalled on every coordinator', async function() {
+    it("should be uninstalled on every coordinator", async function() {
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall
@@ -255,7 +255,7 @@ function suiteRunningCluster(getEndpointUrl, params) {
       });
     });
 
-    it('should be reconfigured on every coordinator', async function() {
+    it("should be reconfigured on every coordinator", async function() {
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall
@@ -266,7 +266,7 @@ function suiteRunningCluster(getEndpointUrl, params) {
       });
     });
 
-    it('should its dependencies be reconfigured on every coordinator', async function() {
+    it("should its dependencies be reconfigured on every coordinator", async function() {
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall
@@ -282,7 +282,7 @@ function suiteRunningCluster(getEndpointUrl, params) {
 function suiteNewCoordinatorDifferentServiceSetups() {
   return function() {
     describe(
-      'with 1 service involved',
+      "with 1 service involved",
       suiteNewCoordinator({
         servicesToInstall: [
           {
@@ -295,7 +295,7 @@ function suiteNewCoordinatorDifferentServiceSetups() {
       })
     );
     describe(
-      'with 2 services involved',
+      "with 2 services involved",
       suiteNewCoordinator({
         servicesToInstall: [
           {
@@ -318,7 +318,7 @@ function suiteNewCoordinatorDifferentServiceSetups() {
 
 function suiteNewCoordinator(params) {
   return function() {
-    const im = new InstanceManager();
+    const im = InstanceManager.create();
 
     beforeEach(async function() {
       await im.startCluster(1, 3, 2);
@@ -326,27 +326,27 @@ function suiteNewCoordinator(params) {
     });
     afterEach(() => afterEachCleanup(this, im));
 
-    it('should be installed on every coordinator', async function() {
+    it("should be installed on every coordinator", async function() {
       await installAndCheckServices(im, {
         endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall
       });
       const numbCoord = im.coordinators().length;
-      await im.waitForInstance(await im.startCoordinator('coordinator-new'));
+      await im.waitForInstance(await im.startCoordinator("coordinator-new"));
       expect(im.coordinators().length).to.be.above(numbCoord);
       await checkAllServices(im, params.servicesToInstall);
     });
 
-    it('should be removed and unavailable on every coords', async function() {
+    it("should be removed and unavailable on every coords", async function() {
       const db = arangojs(await getRandomEndpointUrl(im));
-      const collection = db.collection('_apps');
+      const collection = db.collection("_apps");
       for (const info of params.servicesToInstall) {
         await db.query(
           aql`INSERT {mount: ${info.mount}, checksum: '69'} IN ${collection}`
         );
       }
       const numbCoord = im.coordinators().length;
-      await im.waitForInstance(await im.startCoordinator('coordinator-new'));
+      await im.waitForInstance(await im.startCoordinator("coordinator-new"));
       expect(im.coordinators().length).to.be.above(numbCoord);
       const servicesToCheck = params.servicesToInstall;
       for (const service of servicesToCheck) {
@@ -361,7 +361,7 @@ function suiteNewCoordinator(params) {
 function suiteRebootCoordinatorDifferentServiceSetup(getCoordinatorInstance) {
   return function() {
     describe(
-      'with 1 service involved',
+      "with 1 service involved",
       suiteRebootCoordinator(getCoordinatorInstance, {
         servicesToInstall: [
           {
@@ -389,7 +389,7 @@ function suiteRebootCoordinatorDifferentServiceSetup(getCoordinatorInstance) {
       })
     );
     describe(
-      'with 2 services involved',
+      "with 2 services involved",
       suiteRebootCoordinator(getCoordinatorInstance, {
         servicesToInstall: [
           {
@@ -438,7 +438,7 @@ function suiteRebootCoordinatorDifferentServiceSetup(getCoordinatorInstance) {
 
 function suiteRebootCoordinator(getCoordinatorInstance, params) {
   return function() {
-    const im = new InstanceManager();
+    const im = InstanceManager.create();
     let coordinatorInstance;
 
     beforeEach(async function() {
@@ -448,7 +448,7 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
     });
     afterEach(() => afterEachCleanup(this, im));
 
-    it('should be installed on every coordinator', async function() {
+    it("should be installed on every coordinator", async function() {
       await im.shutdown(coordinatorInstance);
       expect(isRunning(coordinatorInstance)).to.be.false;
       await installAndCheckServices(im, {
@@ -460,7 +460,7 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
       await checkAllServices(im, params.servicesToInstall);
     });
 
-    it('should be corrected if not equal than in cluster', async function() {
+    it("should be corrected if not equal than in cluster", async function() {
       await installAndCheckServices(im, {
         endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall
@@ -476,7 +476,7 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
       await checkAllServices(im, params.servicesToUpgrade);
     });
 
-    it('should be ignored if not installed in cluster', async function() {
+    it("should be ignored if not installed in cluster", async function() {
       await installAndCheckServices(im, {
         endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall
@@ -497,7 +497,7 @@ function suiteRebootCoordinator(getCoordinatorInstance, params) {
 function suiteReplaceCoordinatorDifferentServiceSetup(getCoordinatorInstance) {
   return function() {
     describe(
-      'with 1 service involved',
+      "with 1 service involved",
       suiteReplaceCoordinator(getCoordinatorInstance, {
         servicesToInstall: [
           {
@@ -518,7 +518,7 @@ function suiteReplaceCoordinatorDifferentServiceSetup(getCoordinatorInstance) {
       })
     );
     describe(
-      'with 2 services involved',
+      "with 2 services involved",
       suiteReplaceCoordinator(getCoordinatorInstance, {
         servicesToInstall: [
           {
@@ -555,7 +555,7 @@ function suiteReplaceCoordinatorDifferentServiceSetup(getCoordinatorInstance) {
 
 function suiteReplaceCoordinator(getCoordinatorInstance, params) {
   return function() {
-    const im = new InstanceManager();
+    const im = InstanceManager.create();
     let coordinatorInstance;
 
     beforeEach(async function() {
@@ -565,7 +565,7 @@ function suiteReplaceCoordinator(getCoordinatorInstance, params) {
     });
     afterEach(() => afterEachCleanup(this, im));
 
-    it('should be installed on every coordinator', async function() {
+    it("should be installed on every coordinator", async function() {
       const numbCoord = im.coordinators().length;
       await im.destroy(coordinatorInstance);
       expect(im.coordinators().length).to.be.below(numbCoord);
@@ -578,7 +578,7 @@ function suiteReplaceCoordinator(getCoordinatorInstance, params) {
       await checkAllServices(im, params.servicesToInstall);
     });
 
-    it('should be corrected if not equal than in cluster', async function() {
+    it("should be corrected if not equal than in cluster", async function() {
       for (const service of params.servicesToHeal) {
         await prepopulateServiceFiles(
           await im.getEndpointUrl(coordinatorInstance),
@@ -598,7 +598,7 @@ function suiteReplaceCoordinator(getCoordinatorInstance, params) {
       await checkAllServices(im, params.servicesToInstall);
     });
 
-    it('should be ignored if not installed in cluster', async function() {
+    it("should be ignored if not installed in cluster", async function() {
       for (const service of params.servicesToHeal) {
         await prepopulateServiceFiles(
           await im.getEndpointUrl(coordinatorInstance),
@@ -619,7 +619,7 @@ function suiteReplaceCoordinator(getCoordinatorInstance, params) {
 function suiteClusterStartDifferentServiceSetups() {
   return function() {
     describe(
-      'with 1 service involved',
+      "with 1 service involved",
       suiteClusterStart({
         servicesToInstall: [
           {
@@ -641,7 +641,7 @@ function suiteClusterStartDifferentServiceSetups() {
     );
 
     describe(
-      'with 2 services involved',
+      "with 2 services involved",
       suiteClusterStart({
         servicesToInstall: [
           {
@@ -678,14 +678,14 @@ function suiteClusterStartDifferentServiceSetups() {
 
 function suiteClusterStart(params) {
   return function() {
-    const im = new InstanceManager();
+    const im = InstanceManager.create();
 
     beforeEach(async function() {
       await im.startCluster(1, 3, 2);
       await installUtilService(im);
     });
     afterEach(() => afterEachCleanup(this, im));
-    it('when missing on any one coordinator should be available on every coordinator', async function() {
+    it("when missing on any one coordinator should be available on every coordinator", async function() {
       const endpointUrl = await getRandomEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
@@ -698,7 +698,7 @@ function suiteClusterStart(params) {
       await checkAllServices(im, params.servicesToInstall);
     });
 
-    it('when missing on all coordinators should not be available', async function() {
+    it("when missing on all coordinators should not be available", async function() {
       await installAndCheckServices(im, {
         endpointUrl: await getRandomEndpointUrl(im),
         serviceInfos: params.servicesToInstall
@@ -717,14 +717,14 @@ function suiteClusterStart(params) {
       await checkAllServices(im, servicesToCheck);
     });
 
-    it('when missing in storage should be available on every coordinator', async function() {
+    it("when missing in storage should be available on every coordinator", async function() {
       const endpointUrl = await getRandomEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall
       });
       const db = await arangojs(endpointUrl);
-      const collection = db.collection('_apps');
+      const collection = db.collection("_apps");
       for (const service of params.servicesToInstall) {
         await db.query(
           aql`FOR service IN ${collection}
@@ -741,7 +741,7 @@ function suiteClusterStart(params) {
       await checkAllServices(im, servicesToCheck);
     });
 
-    it('with wrong service on any one coordinator should be available on every coordinator', async function() {
+    it("with wrong service on any one coordinator should be available on every coordinator", async function() {
       const endpointUrl = await getRandomEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
@@ -759,14 +759,14 @@ function suiteClusterStart(params) {
       await checkAllServices(im, params.servicesToInstall);
     });
 
-    it('with missing checksum in storage should be available on every coordinator', async function() {
+    it("with missing checksum in storage should be available on every coordinator", async function() {
       const endpointUrl = await getRandomEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
         serviceInfos: params.servicesToInstall
       });
       const db = arangojs(endpointUrl);
-      const collection = db.collection('_apps');
+      const collection = db.collection("_apps");
       await db.query(
         aql`
           FOR info IN ${params.servicesToInstall}
@@ -786,7 +786,7 @@ function suiteClusterStart(params) {
 function suiteDevModeDifferentServiceSetups() {
   return function() {
     describe(
-      'with 1 service involved',
+      "with 1 service involved",
       suiteDevMode({
         servicesToInstall: [
           {
@@ -800,14 +800,14 @@ function suiteDevModeDifferentServiceSetups() {
           {
             mount: MOUNT_1,
             service: service2,
-            checksum: 'd8bce44b',
+            checksum: "d8bce44b",
             result: SERVICE_2_RESULT
           }
         ]
       })
     );
     describe(
-      'with 2 services involved',
+      "with 2 services involved",
       suiteDevMode({
         servicesToInstall: [
           {
@@ -827,13 +827,13 @@ function suiteDevModeDifferentServiceSetups() {
           {
             mount: MOUNT_1,
             service: service2,
-            checksum: 'd8bce44b',
+            checksum: "d8bce44b",
             result: SERVICE_2_RESULT
           },
           {
             mount: MOUNT_2,
             service: service1,
-            checksum: '6d7faf6',
+            checksum: "6d7faf6",
             result: SERVICE_1_RESULT
           }
         ]
@@ -844,7 +844,7 @@ function suiteDevModeDifferentServiceSetups() {
 
 function suiteDevMode(params) {
   return function() {
-    const im = new InstanceManager();
+    const im = InstanceManager.create();
 
     beforeEach(async function() {
       await im.startCluster(1, 3, 2);
@@ -852,7 +852,7 @@ function suiteDevMode(params) {
     });
     afterEach(() => afterEachCleanup(this, im));
 
-    it('should be replaced on every coordinator', async function() {
+    it("should be replaced on every coordinator", async function() {
       const endpointUrl = await getRandomEndpointUrl(im);
       await installAndCheckServices(im, {
         endpointUrl,
@@ -893,7 +893,7 @@ function getAllCoordEndpointUrls(im) {
 }
 
 function isRunning(instance) {
-  return instance.status === 'RUNNING';
+  return instance.status === "RUNNING";
 }
 
 async function getRandomCoordinator(im) {
@@ -1049,7 +1049,7 @@ async function checkServiceAvailable(endpointUrl, mount, expectedResult) {
     } catch (e) {
       if (expectedResult === null) {
         expect(e.code).to.equal(404);
-        const collection = db.collection('_apps');
+        const collection = db.collection("_apps");
         const cursor = await db.query(
           aql`FOR s IN ${collection}
               FILTER s.mount == ${service.mount}
@@ -1060,7 +1060,7 @@ async function checkServiceAvailable(endpointUrl, mount, expectedResult) {
       }
       throw e;
     }
-    expect(response).to.have.property('body', expectedResult);
+    expect(response).to.have.property("body", expectedResult);
   }
 }
 
@@ -1068,7 +1068,9 @@ async function checkBundleExists(endpointUrl, mount, expectedResult) {
   if (expectedResult !== undefined) {
     let response;
     try {
-      response = await arangojs(endpointUrl).route(UTIL_MOUNT).head({mount});
+      response = await arangojs(endpointUrl)
+        .route(UTIL_MOUNT)
+        .head({ mount });
     } catch (e) {
       if (expectedResult === null) {
         expect(e.code).to.equal(404);
@@ -1083,12 +1085,12 @@ async function checkBundleExists(endpointUrl, mount, expectedResult) {
 async function checkBundleChecksum(endpointUrl, mount, expectedChecksum) {
   const response = await arangojs(endpointUrl)
     .route(UTIL_MOUNT)
-    .get('/checksums', {mount});
-  expect(response).to.have.property('body');
+    .get("/checksums", { mount });
+  expect(response).to.have.property("body");
   if (expectedChecksum === null) {
     expect(response.body).to.eql({});
   } else {
-    expect(response.body).to.eql({[mount]: expectedChecksum});
+    expect(response.body).to.eql({ [mount]: expectedChecksum });
   }
 }
 
@@ -1099,7 +1101,7 @@ async function checkBundleChecksumInCollection(
 ) {
   if (expectedChecksum !== null) {
     const db = await arangojs(endpointUrl);
-    const collection = db.collection('_apps');
+    const collection = db.collection("_apps");
     const cursor = await db.query(
       aql`FOR service IN ${collection}
           FILTER service.mount == ${mount}
@@ -1146,21 +1148,25 @@ async function installUtilService(im) {
 async function deleteLocalServiceFiles(endpointUrl, mount) {
   await arangojs(endpointUrl)
     .route(UTIL_MOUNT)
-    .request({method: 'DELETE', qs: {mount}});
+    .request({ method: "DELETE", qs: { mount } });
 }
 
 async function prepopulateServiceFiles(endpointUrl, mount, service) {
-  await arangojs(endpointUrl).route(UTIL_MOUNT).request({
-    method: 'POST',
-    rawBody: service,
-    qs: {mount}
-  });
+  await arangojs(endpointUrl)
+    .route(UTIL_MOUNT)
+    .request({
+      method: "POST",
+      rawBody: service,
+      qs: { mount }
+    });
 }
 
 async function replaceServiceFiles(endpointUrl, mount, service) {
-  await arangojs(endpointUrl).route(UTIL_MOUNT).request({
-    method: 'PUT',
-    rawBody: service,
-    qs: {mount}
-  });
+  await arangojs(endpointUrl)
+    .route(UTIL_MOUNT)
+    .request({
+      method: "PUT",
+      rawBody: service,
+      qs: { mount }
+    });
 }
