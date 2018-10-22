@@ -37,8 +37,9 @@ describe("Leader-Follower failover", async function() {
   });
 
   afterEach(function() {
+    const retainDir = this.currentTest.state === "failed";
     instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup().catch(() => {});
+    return instanceManager.cleanup(retainDir).catch(() => {});
   });
 
   // no actual data is transmitted, only heartbeat thread is tested

@@ -130,7 +130,8 @@ describe("Remove servers", function() {
 
   afterEach(function() {
     instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup();
+    const retainDir = this.currentTest.state === "failed";
+    return instanceManager.cleanup(retainDir);
   });
   it("should mark a failed coordinator failed after a while", function() {
     return instanceManager

@@ -36,7 +36,8 @@ describe("Setup", function() {
   });
 
   afterEach(function() {
+    const retainDir = this.currentTest.state === "failed";
     instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup();
+    return instanceManager.cleanup(retainDir);
   });
 });

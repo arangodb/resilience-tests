@@ -37,8 +37,9 @@ describe("Temporary stopping", async function() {
   });
 
   afterEach(function() {
+    const retainDir = this.currentTest.state === "failed";
     instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup().catch(() => {});
+    return instanceManager.cleanup(retainDir).catch(() => {});
   });
 
   async function generateData(db, num) {

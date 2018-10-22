@@ -7,7 +7,9 @@ const arangojs = require("arangojs");
 describe("ClusterResilience", function() {
   let instanceManager = InstanceManager.create();
   let db;
+  let aTestFailed;
   before(function() {
+    aTestFailed = false;
     return instanceManager.startCluster(3, 2, 2).then(() => {
       db = arangojs({
         url: instanceManager.getEndpointUrl(),
@@ -31,12 +33,16 @@ describe("ClusterResilience", function() {
   });
 
   afterEach(function() {
+    if (this.currentTest.state === "failed") {
+      aTestFailed = true;
+    }
     instanceManager.check();
     instanceManager.moveServerLogs(this.currentTest);
   });
 
   after(function() {
-    return instanceManager.cleanup();
+    const retainDir = aTestFailed;
+    return instanceManager.cleanup(retainDir);
   });
 
   it("should report the same number of documents after a db server restart", function() {
