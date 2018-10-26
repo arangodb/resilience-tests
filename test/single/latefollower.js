@@ -17,8 +17,9 @@ describe("Adding late followers", async function() {
   });
 
   afterEach(function() {
-    const retainDir = this.currentTest.state === "failed";
-    instanceManager.moveServerLogs(this.currentTest);
+    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+    const retainDir = currentTest.state === "failed";
+    instanceManager.moveServerLogs(currentTest);
     return instanceManager.cleanup(retainDir).catch(() => {});
   });
 

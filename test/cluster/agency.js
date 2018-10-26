@@ -234,7 +234,8 @@ describe("Agency", function() {
     });
 
     afterEach(function() {
-      const testFailed = this.currentTest.state === "failed";
+      const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+      const testFailed = currentTest.state === "failed";
       const retainDir = testFailed;
       return instanceManager.cleanup(retainDir).then(log => {
         if (testFailed) {
@@ -262,7 +263,8 @@ describe("Agency", function() {
     });
 
     afterEach(function() {
-      const testFailed = this.currentTest.state === "failed";
+      const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+      const testFailed = currentTest.state === "failed";
       const retainDir = testFailed;
       return instanceManager.cleanup(retainDir).then(log => {
         if (testFailed) {

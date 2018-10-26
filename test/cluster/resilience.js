@@ -33,7 +33,8 @@ describe("ClusterResilience", function() {
   });
 
   afterEach(function() {
-    if (this.currentTest.state === "failed") {
+    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+    if (currentTest.state === "failed") {
       aTestFailed = true;
     }
     instanceManager.check();

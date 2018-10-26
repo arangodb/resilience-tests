@@ -175,7 +175,8 @@ describe("Failover", function() {
   });
 
   afterEach(function() {
-    const retainDir = this.currentTest.state === "failed";
+    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+    const retainDir = currentTest.state === "failed";
     return instanceManager.cleanup(retainDir);
   });
 });

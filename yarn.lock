@@ -2,6 +2,51 @@
 # yarn lockfile v1
 
 
+"@types/bluebird@*":
+  version "3.5.24"
+  resolved "https://registry.yarnpkg.com/@types/bluebird/-/bluebird-3.5.24.tgz#11f76812531c14f793b8ecbf1de96f672905de8a"
+  integrity sha512-YeQoDpq4Lm8ppSBqAnAeF/xy1cYp/dMTif2JFcvmAbETMRlvKHT2iLcWu+WyYiJO3b3Ivokwo7EQca/xfLVJmg==
+
+"@types/caseless@*":
+  version "0.12.1"
+  resolved "https://registry.yarnpkg.com/@types/caseless/-/caseless-0.12.1.tgz#9794c69c8385d0192acc471a540d1f8e0d16218a"
+  integrity sha512-FhlMa34NHp9K5MY1Uz8yb+ZvuX0pnvn3jScRSNAb75KHGB8d3rEU6hqMs3Z2vjuytcMfRg6c5CHMc3wtYyD2/A==
+
+"@types/form-data@*":
+  version "2.2.1"
+  resolved "https://registry.yarnpkg.com/@types/form-data/-/form-data-2.2.1.tgz#ee2b3b8eaa11c0938289953606b745b738c54b1e"
+  integrity sha512-JAMFhOaHIciYVh8fb5/83nmuO/AHwmto+Hq7a9y8FzLDcC1KCU344XDOMEmahnrTFlHjgh4L0WJFczNIX2GxnQ==
+  dependencies:
+    "@types/node" "*"
+
+"@types/node@*":
+  version "10.12.0"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-10.12.0.tgz#ea6dcbddbc5b584c83f06c60e82736d8fbb0c235"
+  integrity sha512-3TUHC3jsBAB7qVRGxT6lWyYo2v96BMmD2PTcl47H25Lu7UXtFH/2qqmKiVrnel6Ne//0TFYf6uvNX+HW2FRkLQ==
+
+"@types/request-promise@^4.1.41":
+  version "4.1.42"
+  resolved "https://registry.yarnpkg.com/@types/request-promise/-/request-promise-4.1.42.tgz#a70a6777429531e60ed09faa077ead9b995204cd"
+  integrity sha512-b8li55sEZ00BXZstZ3d8WOi48dnapTqB1VufEG9Qox0nVI2JVnTVT1Mw4JbBa1j+1sGVX/qJ0R4WDv4v2GjT0w==
+  dependencies:
+    "@types/bluebird" "*"
+    "@types/request" "*"
+
+"@types/request@*":
+  version "2.47.1"
+  resolved "https://registry.yarnpkg.com/@types/request/-/request-2.47.1.tgz#25410d3afbdac04c91a94ad9efc9824100735824"
+  integrity sha512-TV3XLvDjQbIeVxJ1Z3oCTDk/KuYwwcNKVwz2YaT0F5u86Prgc4syDAp6P96rkTQQ4bIdh+VswQIC9zS6NjY7/g==
+  dependencies:
+    "@types/caseless" "*"
+    "@types/form-data" "*"
+    "@types/node" "*"
+    "@types/tough-cookie" "*"
+
+"@types/tough-cookie@*":
+  version "2.3.3"
+  resolved "https://registry.yarnpkg.com/@types/tough-cookie/-/tough-cookie-2.3.3.tgz#7f226d67d654ec9070e755f46daebf014628e9d9"
+  integrity sha512-MDQLxNFRLasqS4UlkWMSACMKeSm1x4Q3TxzUC7KQUsh6RK1ZrQ0VEyE3yzXcBu+K8ejVj4wuX32eUG02yNp+YQ==
+
 accepts@~1.3.5:
   version "1.3.5"
   resolved "https://registry.yarnpkg.com/accepts/-/accepts-1.3.5.tgz#eb777df6011723a3b14e8a72c0805c8e86746bd2"
@@ -75,11 +120,12 @@ append-type@^1.0.1:
   resolved "https://registry.yarnpkg.com/append-type/-/append-type-1.0.1.tgz#e29a6eb22cec0c0b9b93063b3cf6b10d9e0c60f4"
   integrity sha512-ro+W6UHJuoA2NXqKHug9bmXDbPB3eCALjcJOsYjgI9cz9cjLFthvincBCWjk25VFzJmIUHd8saOWZZBuMycXrg==
 
-arangodb-instance-manager@^0.1.1:
-  version "0.1.1"
-  resolved "https://registry.yarnpkg.com/arangodb-instance-manager/-/arangodb-instance-manager-0.1.1.tgz#f8c98aedcac510a7259c617379c88c9b4af976f0"
-  integrity sha512-q/OWh46ojN+oDlqo8ByOyFk2LJ/ITktAnVli2LXLZxZgUo24UL134Xu8YuA8dwV6W5SgIi4TxlGYkwcp6G5FXA==
+arangodb-instance-manager@^0.1.2:
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/arangodb-instance-manager/-/arangodb-instance-manager-0.1.2.tgz#93da7dedef6aa11364afdc4b47bb1213f51650ca"
+  integrity sha512-6Hlho7Hp39imp+mfB0uarMj9MgZ5XskzpQNnu6T8h1xqfxf8O4rjlNQDVuPkJVRXWPPAAP627KrnzMC+WiQe5A==
   dependencies:
+    "@types/request-promise" "^4.1.41"
     arangojs "^6.2.4"
     dedent "^0.7.0"
     express "^4.16.3"
@@ -95,19 +141,6 @@ arangodb-instance-manager@^0.1.1:
     tmp "^0.0.33"
     which "^1.3.0"
 
-arangojs@^5.2.0:
-  version "5.8.0"
-  resolved "https://registry.yarnpkg.com/arangojs/-/arangojs-5.8.0.tgz#5a84214209ea2cb9d2d25415213c2add28335ba8"
-  integrity sha512-x0uu3grt4K4MFcwjrS9l7Px0zhGHE2CywgsBy4CepUW1X3DNYLdH5foOC1MOHhqkvUOnkY8zXklGerorn65Bvw==
-  dependencies:
-    es6-error "^4.0.1"
-    http-errors "^1.6.1"
-    linkedlist "^1.0.1"
-    multi-part "^2.0.0"
-    retry "^0.10.0"
-    utf8-length "^0.0.1"
-    xhr "^2.3.1"
-
 arangojs@^6.2.4:
   version "6.2.4"
   resolved "https://registry.yarnpkg.com/arangojs/-/arangojs-6.2.4.tgz#efe50f08f141d0d88e4c847416ce54086cf09880"
@@ -117,6 +150,17 @@ arangojs@^6.2.4:
     linkedlist "^1.0.1"
     multi-part "^2.0.0"
     utf8-length "^0.0.1"
+    xhr "^2.4.1"
+
+arangojs@^6.6.0:
+  version "6.6.0"
+  resolved "https://registry.yarnpkg.com/arangojs/-/arangojs-6.6.0.tgz#23ee01cf6b3d9838f24aedee98b706cccd059017"
+  integrity sha512-2Mkp4FpshhAisXlHoo+zg3gHyaFPWWY0mu0gplv2raoW4lRdohlntq2q+o1LQrtBzQ5r/pRUveTMmYJAUzkpaA==
+  dependencies:
+    "@types/node" "*"
+    es6-error "^4.0.1"
+    linkedlist "^1.0.1"
+    multi-part "^2.0.0"
     xhr "^2.4.1"
 
 argparse@^1.0.7:
@@ -1022,7 +1066,7 @@ http-errors@1.6.2:
     setprototypeof "1.0.3"
     statuses ">= 1.3.1 < 2"
 
-http-errors@^1.6.1, http-errors@~1.6.2:
+http-errors@~1.6.2:
   version "1.6.3"
   resolved "https://registry.yarnpkg.com/http-errors/-/http-errors-1.6.3.tgz#8b55680bb4be283a0b5bf4ea2e38580be1d9320d"
   integrity sha1-i1VoC7S+KDoLW/TqLjhYC+HZMg0=
@@ -1815,11 +1859,6 @@ restore-cursor@^1.0.1:
     exit-hook "^1.0.0"
     onetime "^1.0.0"
 
-retry@^0.10.0:
-  version "0.10.1"
-  resolved "https://registry.yarnpkg.com/retry/-/retry-0.10.1.tgz#e76388d217992c252750241d3d3956fed98d8ff4"
-  integrity sha1-52OI0heZLCUnUCQdPTlW/tmNj/Q=
-
 rimraf-promise@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/rimraf-promise/-/rimraf-promise-2.0.0.tgz#3ddbe4378c1adec966bc366ddfbc985143c76952"
@@ -2197,7 +2236,7 @@ write@^0.2.1:
   dependencies:
     mkdirp "^0.5.1"
 
-xhr@^2.3.1, xhr@^2.4.1:
+xhr@^2.4.1:
   version "2.5.0"
   resolved "https://registry.yarnpkg.com/xhr/-/xhr-2.5.0.tgz#bed8d1676d5ca36108667692b74b316c496e49dd"
   integrity sha512-4nlO/14t3BNUZRXIXfXe+3N6w3s1KoxcJUUURctd64BLRe67E4gRwp4PjywtDY72fXpZ1y6Ch0VZQRY/gMPzzQ==

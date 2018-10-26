@@ -12,8 +12,8 @@
   "author": "Andreas Streichardt <mop@arangodb.com>",
   "license": "Apache-2.0",
   "dependencies": {
-    "arangodb-instance-manager": "^0.1.1",
-    "arangojs": "^5.2.0",
+    "arangodb-instance-manager": "^0.1.2",
+    "arangojs": "^6.6.0",
     "chai": "^3.5.0",
     "dedent": "^0.7.0",
     "ip": "^1.1.3",

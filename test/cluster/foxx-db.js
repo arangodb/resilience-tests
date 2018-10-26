@@ -77,8 +77,9 @@ describe("Foxx service", function() {
 
   beforeEach(() => im.startCluster(1, 2, 2));
   afterEach(async () => {
+    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+    const retainDir = currentTest.state === "failed";
     try {
-      const retainDir = this.currentTest.state === "failed";
       await im.cleanup(retainDir);
     } catch (_) {}
   });
