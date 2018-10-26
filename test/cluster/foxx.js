@@ -14,7 +14,7 @@ const service2 = readFileSync(
   join(__dirname, "..", "..", "fixtures", "service2.zip")
 );
 
-const log = (...args) => {
+const debugLog = (...args) => {
   if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE === "1") {
     console.log(new Date().toISOString(), ' ', ...args);
   }
@@ -35,7 +35,7 @@ describe("Foxx service", function() {
       const retainDir = currentTest.state === "failed";
       await im.cleanup(retainDir);
     } catch (err) {
-      log(`cleanup failed: ${err}`, err);
+      debugLog(`cleanup failed: ${err}`, err);
     }
   });
 
