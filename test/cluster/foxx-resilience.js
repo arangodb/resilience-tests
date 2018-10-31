@@ -1156,7 +1156,8 @@ async function prepopulateServiceFiles(endpointUrl, mount, service) {
     .route(UTIL_MOUNT)
     .request({
       method: "POST",
-      rawBody: service,
+      body: service,
+      isBinary: true,
       qs: { mount }
     });
 }
@@ -1166,7 +1167,8 @@ async function replaceServiceFiles(endpointUrl, mount, service) {
     .route(UTIL_MOUNT)
     .request({
       method: "PUT",
-      rawBody: service,
+      body: service,
+      isBinary: true,
       qs: { mount }
     });
 }
