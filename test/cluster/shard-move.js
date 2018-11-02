@@ -4,6 +4,7 @@ const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
 const rp = require("request-promise");
+const _ = require("lodash");
 
 describe("Move shards", function() {
   let instanceManager = InstanceManager.create();
@@ -183,33 +184,24 @@ describe("Move shards", function() {
         return cursor.all();
       })
       .then(all => {
-        all = all.map(doc => doc.hallooo);
-        all.sort((a, b) => {
-          if (a < b) {
-            return -1;
-          } else if (a > b) {
-            return 1;
-          } else {
-            return 0;
-          }
-        });
+        all = new Set(all.map(doc => doc.hallooo));
 
         let errorMsg = "";
-        if (all.length !== 10000) {
-          for (let i = 0; i < all.length; ++i) {
-            if (all[i] !== i) {
-              errorMsg +=
-                "At position " +
-                i +
-                " we got " +
-                all[i] +
-                " instead of " +
-                i +
-                "\n";
+        if (all.size !== 10000) {
+          for (let i = 0; i < 10000; ++i) {
+            if (!all.has(i)) {
+              errorMsg += `Document ${i} missing!\n`;
+            }
+          }
+          // If you get the following error message, most probably something is
+          // wrong in the test code.
+          for (const i of all) {
+            if (!_.inRange(i, 0, 10000)) {
+              errorMsg += `Unexpected document ${i}!\n`;
             }
           }
         }
-        expect(all, errorMsg).to.have.lengthOf(10000);
+        expect(all.size, errorMsg).to.equal(10000);
       });
   });
 });
