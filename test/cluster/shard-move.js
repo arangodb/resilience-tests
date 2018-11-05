@@ -10,7 +10,9 @@ describe("Move shards", function() {
   let instanceManager = InstanceManager.create();
   let db;
   let servers = [];
+  let aTestFailed;
   before(function() {
+    aTestFailed = false;
     return instanceManager
       .startCluster(1, 2, 3)
       .then(() => {
@@ -34,8 +36,15 @@ describe("Move shards", function() {
         servers = _servers;
       });
   });
+  afterEach(function() {
+    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+    if (currentTest.state === "failed") {
+      aTestFailed = true;
+    }
+  });
   after(function() {
-    return instanceManager.cleanup();
+    const retainDir = aTestFailed;
+    return instanceManager.cleanup(retainDir);
   });
 
   it("should allow moving shards while writing", function() {

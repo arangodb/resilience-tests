@@ -36,7 +36,9 @@ describe("Setup", function() {
   });
 
   afterEach(function() {
-    instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup();
+    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+    const retainDir = currentTest.state === "failed";
+    instanceManager.moveServerLogs(currentTest);
+    return instanceManager.cleanup(retainDir);
   });
 });

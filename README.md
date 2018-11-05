@@ -6,17 +6,17 @@ Under the hood it is just a more or less standard mocha testsuite plus some stuf
 
 ## Requirements
 
-You need a pretty recent v7.6+ nodejs and npm and either a compiled ArangoDB source directory or a docker container you want to test
+You need a pretty recent v7.6+ nodejs and yarn or npm and either a compiled ArangoDB source directory or a docker container you want to test
 
 ## Installation
 
-`npm install` will install all required libraries. `yarn` should work too.
+`yarn` will install all required libraries. `npm install` should work too.
 
 ## Executing
 
 Simply execute
 
-`npm run test-jenkins`
+`yarn test-jenkins` or `npm run test-jenkins`
 
 This will bail out like this:
 
@@ -28,7 +28,7 @@ Specify the path to your arangodb source directory containing a `build` director
 
 Then reexecute like this (replace path of course):
 
-`RESILIENCE_ARANGO_BASEPATH=../arangodb npm run test-jenkins`
+`RESILIENCE_ARANGO_BASEPATH=../arangodb yarn test-jenkins`
 
 ## Options
 
@@ -42,7 +42,7 @@ RESILIENCE_DOCKER_IMAGE
 
 LOG_IMMEDIATE
 
-    By default log output is being surpressed and only shown if there is an error. By setting this to 1 the logoutput will be thrown onto the console right away (useful for debugging)
+    Set to 1 for debug log output from the tests and the instance manager.
 
 ARANGO_STORAGE_ENGINE
 
@@ -61,13 +61,32 @@ PORT_OFFSET
     Port offset. For every request this will be added to the startPort to keep the ports somewhat predicatable. Default 50
     The first request would reveal for example 4000. The second instance would then be assigned port 4050, then 4100 and so forth.
 
+RESILIENCE_ARANGO_WRAPPER
+
+    Wrapper command for arangod, e.g. rr.
+
+LOG_REQUESTS
+
+    Set log level for requests, e.g. `debug` or `trace`.
+    Will be passed to arangod appended to `--log.level=requests=`.
+
+LOG_COMMUNICATION
+
+    Set log level for communication, e.g. `debug` or `trace`.
+    Will be passed to arangod appended to `--log.level=communication=`.
+
+LOG_AGENCY
+
+    Set log level for the agency, e.g. `debug` or `trace`.
+    Will be passed to arangod appended to `--log.level=agency=`.
+
 ## Mocha options
 
-The tests itself are run through mocha so you can append mocha commands to the `npm run` script as you would expect:
+The tests itself are run through mocha so you can append mocha commands to the `package.json` script as you would expect:
 
 Some Examples:
 
 ```
-RESILIENCE_ARANGO_BASEPATH=../arangodb npm run test -- --grep "Move shards"
-RESILIENCE_ARANGO_BASEPATH=../arangodb ARANGO_STORAGE_ENGINE=rocksdb npm run test -- test/cluster/shard-move.js 
+RESILIENCE_ARANGO_BASEPATH=../arangodb yarn test -- --grep "Move shards"
+RESILIENCE_ARANGO_BASEPATH=../arangodb ARANGO_STORAGE_ENGINE=rocksdb yarn test -- test/cluster/shard-move.js
 ```

@@ -19,6 +19,12 @@ const service2 = readFileSync(
 );
 const retryIntervalMS = 10000;
 
+const debugLog = (...args) => {
+  if (process.env.LOG_IMMEDIATE === "1") {
+    console.log(new Date().toISOString(), ' ', ...args);
+  }
+};
+
 describe("Foxx service", function() {
   const im = InstanceManager.create();
   const MOUNT = "/resiliencetestservice";
@@ -35,6 +41,10 @@ describe("Foxx service", function() {
       } catch (e) {
         if (e instanceof FailoverError) {
           // This is expected! just continue
+          debugLog(`waitForLeaderFailover: caught expected FailoverError ${e}`);
+        } if (e instanceof Error && e.message.startsWith('Unknown endpoint ')) {
+          // This is expected! just continue
+          debugLog(`waitForLeaderFailover: caught expected Error ${e}`);
         } else {
           // unexpected error throw it
           throw e;
@@ -77,8 +87,10 @@ describe("Foxx service", function() {
 
   beforeEach(() => im.startCluster(1, 2, 2));
   afterEach(async () => {
+    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+    const retainDir = currentTest.state === "failed";
     try {
-      await im.cleanup();
+      await im.cleanup(retainDir);
     } catch (_) {}
   });
 

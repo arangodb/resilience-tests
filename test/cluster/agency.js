@@ -234,8 +234,11 @@ describe("Agency", function() {
     });
 
     afterEach(function() {
-      return instanceManager.cleanup().then(log => {
-        if (this.currentTest.state === "failed") {
+      const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+      const testFailed = currentTest.state === "failed";
+      const retainDir = testFailed;
+      return instanceManager.cleanup(retainDir).then(log => {
+        if (testFailed) {
           this.currentTest.err.message =
             log + "\n\n" + this.currentTest.err.message;
         }
@@ -260,8 +263,11 @@ describe("Agency", function() {
     });
 
     afterEach(function() {
-      return instanceManager.cleanup().then(log => {
-        if (this.currentTest.state === "failed") {
+      const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+      const testFailed = currentTest.state === "failed";
+      const retainDir = testFailed;
+      return instanceManager.cleanup(retainDir).then(log => {
+        if (testFailed) {
           this.currentTest.err.message =
             log + "\n\n" + this.currentTest.err.message;
         }

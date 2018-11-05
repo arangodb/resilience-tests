@@ -14,6 +14,14 @@ const service2 = readFileSync(
   join(__dirname, "..", "..", "fixtures", "service2.zip")
 );
 
+const debugLog = (...args) => {
+  if (process.env.LOG_IMMEDIATE === "1") {
+    console.log(new Date().toISOString(), ' ', ...args);
+  }
+};
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 describe("Foxx service", function() {
   const im = InstanceManager.create();
   const MOUNT = "/resiliencetestservice";
@@ -23,8 +31,12 @@ describe("Foxx service", function() {
   });
   afterEach(async () => {
     try {
-      await im.cleanup();
-    } catch (_) {}
+      const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+      const retainDir = currentTest.state === "failed";
+      await im.cleanup(retainDir);
+    } catch (err) {
+      debugLog(`cleanup failed: ${err}`, err);
+    }
   });
 
   describe("when already installed", function() {
@@ -131,7 +143,7 @@ describe("Foxx service", function() {
       db = arangojs(im.getEndpointUrl(coord2));
       let success = true;
       try {
-        response = await db.route(MOUNT).get();
+        const response = await db.route(MOUNT).get();
         console.log(response);
       } catch (error) {
         success = false;

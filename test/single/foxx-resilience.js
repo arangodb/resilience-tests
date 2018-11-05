@@ -40,8 +40,10 @@ describe("Foxx service", async function() {
   });
 
   afterEach(function() {
-    instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup().catch(() => {});
+    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+    const retainDir = currentTest.state === "failed";
+    instanceManager.moveServerLogs(currentTest);
+    return instanceManager.cleanup(retainDir).catch(() => {});
   });
 
   async function generateData(db, num) {

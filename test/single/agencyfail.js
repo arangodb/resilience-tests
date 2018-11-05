@@ -80,8 +80,10 @@ describe("Leader-Follower failover + agency outage", async function() {
   });
 
   afterEach(function() {
+    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
+    const retainDir = currentTest.state === "failed";
     instanceManager.moveServerLogs(this.currentTest);
-    return instanceManager.cleanup().catch(() => {});
+    return instanceManager.cleanup(retainDir).catch(() => {});
   });
 
   // Actual data synchronization
