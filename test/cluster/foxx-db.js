@@ -20,7 +20,7 @@ const service2 = readFileSync(
 const retryIntervalMS = 10000;
 
 const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE === "1") {
+  if (process.env.LOG_IMMEDIATE === "1") {
     console.log(new Date().toISOString(), ' ', ...args);
   }
 };
