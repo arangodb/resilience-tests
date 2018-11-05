@@ -10,13 +10,13 @@ You need a pretty recent v7.6+ nodejs and yarn or npm and either a compiled Aran
 
 ## Installation
 
-`yarn install` will install all required libraries. `npm` should work too.
+`yarn` will install all required libraries. `npm install` should work too.
 
 ## Executing
 
 Simply execute
 
-`yarn run test-jenkins`
+`yarn test-jenkins` or `npm run test-jenkins`
 
 This will bail out like this:
 
@@ -28,7 +28,7 @@ Specify the path to your arangodb source directory containing a `build` director
 
 Then reexecute like this (replace path of course):
 
-`RESILIENCE_ARANGO_BASEPATH=../arangodb yarn run test-jenkins`
+`RESILIENCE_ARANGO_BASEPATH=../arangodb yarn test-jenkins`
 
 ## Options
 
@@ -82,11 +82,11 @@ LOG_AGENCY
 
 ## Mocha options
 
-The tests itself are run through mocha so you can append mocha commands to the `yarn run` script as you would expect:
+The tests itself are run through mocha so you can append mocha commands to the `package.json` script as you would expect:
 
 Some Examples:
 
 ```
-RESILIENCE_ARANGO_BASEPATH=../arangodb yarn run test -- --grep "Move shards"
-RESILIENCE_ARANGO_BASEPATH=../arangodb ARANGO_STORAGE_ENGINE=rocksdb yarn run test -- test/cluster/shard-move.js
+RESILIENCE_ARANGO_BASEPATH=../arangodb yarn test -- --grep "Move shards"
+RESILIENCE_ARANGO_BASEPATH=../arangodb ARANGO_STORAGE_ENGINE=rocksdb yarn test -- test/cluster/shard-move.js
 ```
