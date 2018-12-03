@@ -34,6 +34,11 @@ describe("Move shards", function() {
       })
       .then(_servers => {
         servers = _servers;
+      })
+      .catch(e => {
+        // handle a failed before hook like a failed test
+        aTestFailed = true;
+        throw e;
       });
   });
   afterEach(function() {
