@@ -6,6 +6,8 @@ const endpointToUrl = InstanceManager.endpointToUrl;
 const expect = require("chai").expect;
 const rp = require("request-promise");
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 let agencyRequest = function(options) {
   options.followRedirects = options.followRedirects || false;
   return rp(options)
@@ -37,21 +39,35 @@ let writeData = function(leader, data) {
   });
 };
 
-let waitForReintegration = function(endpoint) {
-  // mop: when reading works again we are reintegrated :)
-  return rp({
-    method: "POST",
-    url: endpointToUrl(endpoint) + "/_api/agency/read",
-    json: true,
-    body: [["/"]],
-    followRedirects: false
-  }).catch(err => {
-    if (err.statusCode == 307) {
-      return Promise.resolve();
-    } else {
-      return waitForReintegration(endpoint);
+let waitForReintegration = async (endpoint) => {
+  // TODO maybe reduce timeout
+  const timeout = 120e3; // 120.000 ms
+  let readSucceeded = false;
+
+  const startTime = Date.now();
+  while(!readSucceeded) {
+    if (startTime + timeout < Date.now()) {
+      throw new Error('Timeout when waiting for reintegration of '
+        + endpoint);
     }
-  });
+
+    try {
+      await rp({
+        method: "POST",
+        url: endpointToUrl(endpoint) + "/_api/agency/read",
+        json: true,
+        body: [["/"]],
+        followRedirects: false
+      });
+      readSucceeded = true;
+    } catch(err) {
+      if (err.statusCode === 307) {
+        readSucceeded = true;
+      } else {
+        await sleep(100); // 100 ms
+      }
+    }
+  }
 };
 
 let waitForLeaderChange = function(oldLeaderEndpoint, followerEndpoint) {
@@ -509,7 +525,7 @@ describe("Agency", function() {
               });
             })
             .then(result => {
-              expect(result.leaderId).to.not.be.empty;
+              expect(result.leaderId, `result is: ${JSON.stringify(result)}`).to.not.be.empty;
               expect(
                 result.configuration.pool[result.configuration.id]
               ).to.equal(leader.endpoint);
@@ -517,14 +533,61 @@ describe("Agency", function() {
             });
         })
         .then(oldLeaderId => {
-          return rp({
-            url: endpointToUrl(followers[0].endpoint) + "/_api/agency/config",
-            json: true
-          }).then(result => {
-            expect(result.configuration.pool[oldLeaderId]).to.equal(
-              leader.endpoint
-            );
-          });
+          // It's possible that not all followers have the config replicated
+          // already. So we have to be lenient here.
+
+          let waitForNewEndpoint = async () => {
+            // TODO maybe reduce timeout
+            const timeout = 120e3; // 120.000 ms
+            const startTime = Date.now();
+
+            for (let curFollower = 0; curFollower < followers.length; ) {
+              const follower = followers[curFollower];
+              let result;
+              try {
+                result = await rp({
+                  url: endpointToUrl(follower.endpoint) + "/_api/agency/config",
+                  json: true
+                });
+              } catch (e) {
+                throw new Error(
+                  'Error when requesting agency config from follower '
+                    + JSON.stringify({
+                    name: follower.name,
+                    endpoint: follower.endpoint,
+                    status: follower.status,
+                    exitcode: follower.exitcode,
+                  }) + '. ' +
+                  'The error was ' + e + ', the response was ' + JSON.stringify(e.response)
+                );
+              }
+
+              if (result.configuration.pool[oldLeaderId] === leader.endpoint) {
+                // success, immediately try the next
+                curFollower++;
+                continue;
+              }
+
+              if (startTime + timeout < Date.now()) {
+                throw new Error(
+                  'Timeout while waiting for all agents to see the new endpoint. ' +
+                  `Follower ${curFollower + 1} of ${followers.length} did not get the memo: `
+                  + JSON.stringify({
+                    name: follower.name,
+                    endpoint: follower.endpoint,
+                    status: follower.status,
+                    exitcode: follower.exitcode,
+                  }) + ' and the last response was ' + JSON.stringify(result) +
+                  ` where we expected .configuration.pool[${oldLeaderId}] to equal ${leader.endpoint}.`
+                );
+              }
+
+              await sleep(100); // 100 ms
+            }
+
+          };
+
+          return waitForNewEndpoint();
         });
     });
   });
