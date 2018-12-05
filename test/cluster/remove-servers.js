@@ -43,11 +43,10 @@ describe("Remove servers", function() {
       });
   });
 
-  let db;
   let waitForHealth = function(serverEndpoint, maxTime) {
     let coordinator = instanceManager
       .coordinators()
-      .filter(server => server.status == "RUNNING")[0];
+      .filter(server => server.status === "RUNNING")[0];
     return rp({
       url:
         instanceManager.getEndpointUrl(coordinator) + "/_admin/cluster/health",
@@ -56,7 +55,7 @@ describe("Remove servers", function() {
       .then(health => {
         health = health.Health;
         let serverId = Object.keys(health).filter(serverId => {
-          return health[serverId].Endpoint == serverEndpoint;
+          return health[serverId].Endpoint === serverEndpoint;
         })[0];
 
         if (serverId === undefined) {
@@ -67,10 +66,7 @@ describe("Remove servers", function() {
           return health[serverId];
         }
       })
-      .then(
-        () => {
-          return;
-        },
+      .catch(
         () => {
           if (maxTime > Date.now()) {
             return new Promise((resolve, reject) => {
@@ -87,36 +83,32 @@ describe("Remove servers", function() {
       );
   };
 
-  let waitForFailedHealth = function(serverEndpoint, maxTime) {
+  let waitForFailedHealth = function(serverId, maxTime) {
     let coordinator = instanceManager
       .coordinators()
-      .filter(server => server.status == "RUNNING")[0];
+      .filter(server => server.status === "RUNNING")[0];
     return rp({
       url:
         instanceManager.getEndpointUrl(coordinator) + "/_admin/cluster/health",
       json: true
     })
-      .then(health => {
-        health = health.Health;
-        let serverId = Object.keys(health).filter(serverId => {
-          return health[serverId].Endpoint == serverEndpoint;
-        })[0];
-
-        if (serverId === undefined) {
+      .then(response => {
+        const health = response.Health;
+        if(!health.hasOwnProperty(serverId)) {
           return Promise.reject(
             new Error("Couldn't find a server in health struct")
           );
-        } else {
-          return health[serverId];
         }
+
+        return health[serverId];
       })
       .then(healthServer => {
-        if (healthServer.Status != "FAILED") {
+        if (healthServer.Status !== "FAILED") {
           if (maxTime > Date.now()) {
             return new Promise((resolve, reject) => {
               setTimeout(resolve, 100);
             }).then(() => {
-              return waitForFailedHealth(serverEndpoint, maxTime);
+              return waitForFailedHealth(serverId, maxTime);
             });
           } else {
             return Promise.reject(
@@ -144,10 +136,10 @@ describe("Remove servers", function() {
         });
       })
       .then(coordinator => {
-        return waitForFailedHealth(coordinator.endpoint, Date.now() + 60000);
+        return waitForFailedHealth(coordinator.id, Date.now() + 60000);
       });
   });
-  it("should not be possile to remove a running coordinator", function() {
+  it("should not be possible to remove a running coordinator", function() {
     return instanceManager
       .startCluster(1, 2, 2)
       .then(() => {
@@ -159,7 +151,7 @@ describe("Remove servers", function() {
       .then(health => {
         health = health.Health;
         let serverId = Object.keys(health).filter(serverId => {
-          return health[serverId].Role == "Coordinator";
+          return health[serverId].Role === "Coordinator";
         })[0];
         return rp({
           url:
@@ -218,7 +210,7 @@ describe("Remove servers", function() {
       })
       .then(coordinator => {
         return waitForFailedHealth(
-          coordinator.endpoint,
+          coordinator.id,
           Date.now() + 60000
         ).then(() => {
           return coordinator;
@@ -226,23 +218,11 @@ describe("Remove servers", function() {
       })
       .then(coordinator => {
         return rp({
-          url: instanceManager.getEndpointUrl() + "/_admin/cluster/health",
-          json: true
-        }).then(health => {
-          health = health.Health;
-          let serverId = Object.keys(health).filter(serverId => {
-            return health[serverId].Endpoint == coordinator.endpoint;
-          })[0];
-          return serverId;
-        });
-      })
-      .then(serverId => {
-        return rp({
           url:
             instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
           json: true,
           method: "post",
-          body: serverId
+          body: coordinator.id,
         });
       });
   });
@@ -269,7 +249,7 @@ describe("Remove servers", function() {
       })
       .then(dbserver => {
         return waitForFailedHealth(
-          dbserver.endpoint,
+          dbserver.id,
           Date.now() + 60000
         ).then(() => {
           return dbserver;
@@ -277,23 +257,11 @@ describe("Remove servers", function() {
       })
       .then(dbserver => {
         return rp({
-          url: instanceManager.getEndpointUrl() + "/_admin/cluster/health",
-          json: true
-        }).then(health => {
-          health = health.Health;
-          let serverId = Object.keys(health).filter(serverId => {
-            return health[serverId].Endpoint == dbserver.endpoint;
-          })[0];
-          return serverId;
-        });
-      })
-      .then(serverId => {
-        return rp({
           url:
             instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
           json: true,
           method: "post",
-          body: serverId
+          body: dbserver.id,
         });
       });
   });

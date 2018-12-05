@@ -43,7 +43,7 @@ async function afterEachCleanup(that, im) {
   await im.cleanup(retainDir).catch(noop);
 }
 
-describe("Foxx service", function() {
+describe("Foxx service (resilience)", function() {
   describe(
     "while cluster running",
     suiteRunningClusterDifferentServiceSetups(getRandomEndpointUrl)

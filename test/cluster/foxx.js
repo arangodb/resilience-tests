@@ -22,7 +22,7 @@ const debugLog = (...args) => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-describe("Foxx service", function() {
+describe("Foxx service (coordinator)", function() {
   const im = InstanceManager.create();
   const MOUNT = "/resiliencetestservice";
 

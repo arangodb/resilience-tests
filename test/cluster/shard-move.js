@@ -53,8 +53,6 @@ describe("Move shards", function() {
   });
 
   it("should allow moving shards while writing", function() {
-    let stopMoving = false;
-
     let moveShards = function() {
       if (moveShards.stop) {
         return Promise.resolve();
@@ -102,10 +100,10 @@ describe("Move shards", function() {
             let current = result[1];
 
             return (
-              current.length == numServers &&
-              current.length == planned.length &&
+              current.length === numServers &&
+              current.length === planned.length &&
               current[0] === newLeader &&
-              current.every((server, index) => planned[index] == server)
+              current.every((server, index) => planned[index] === server)
             );
           })
           .then(finished => {
@@ -130,7 +128,7 @@ describe("Move shards", function() {
           let shardKey = Object.keys(shards)[0];
           let is = [shards[shardKey].leader].concat(shards[shardKey].followers);
           let freeServer = servers.filter(
-            server => is.indexOf(server.name) == -1
+            server => is.indexOf(server.name) === -1
           )[0];
 
           if (freeServer === undefined) {
@@ -148,7 +146,7 @@ describe("Move shards", function() {
             database: "_system",
             shard: shardKey,
             fromServer: servers.filter(
-              server => server.name == shards[shardKey].leader
+              server => server.name === shards[shardKey].leader
             )[0].id,
             toServer: freeServer.id
           };
@@ -191,17 +189,19 @@ describe("Move shards", function() {
         console.log("movePromise resolved");
         return db.collection("testcollection").count();
       })
-      .then(count => {
-        return db.collection("testcollection").all();
+      .then(collectionCount => {
+        return Promise.all([Promise.resolve(collectionCount.count), db.collection("testcollection").all()]);
       })
-      .then(cursor => {
-        return cursor.all();
+      .then(([collectionCount, cursor]) => {
+        const all = cursor.all();
+        return Promise.all([Promise.resolve(collectionCount), all]);
       })
-      .then(all => {
+      .then(([collectionCount, all]) => {
         all = new Set(all.map(doc => doc.hallooo));
 
         let errorMsg = "";
-        if (all.size !== 10000) {
+        if (all.size !== 10000 || collectionCount !== 10000) {
+          errorMsg += `total count is ${all.size}, collection count is ${collectionCount}\n`;
           for (let i = 0; i < 10000; ++i) {
             if (!all.has(i)) {
               errorMsg += `Document ${i} missing!\n`;

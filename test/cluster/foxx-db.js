@@ -25,7 +25,7 @@ const debugLog = (...args) => {
   }
 };
 
-describe("Foxx service", function() {
+describe("Foxx service (dbserver)", function() {
   const im = InstanceManager.create();
   const MOUNT = "/resiliencetestservice";
 
@@ -34,7 +34,7 @@ describe("Foxx service", function() {
     while (count * retryIntervalMS < MAX_FAILOVER_TIMEOUT_MS) {
       try {
         let newLeader = await im.findPrimaryDbServer(col);
-        if (newLeader != lastLeader) {
+        if (newLeader !== lastLeader) {
           // we got a new leader yay \o/
           return;
         }
@@ -116,7 +116,7 @@ describe("Foxx service", function() {
     it("should survive primary dbServer being replaced", async function() {
       const primary = await im.findPrimaryDbServer("_apps");
       await im.destroy(primary);
-      await im.replace(primary);
+      await im.replace(primary, true);
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
       const response = await db.route(MOUNT).get();
