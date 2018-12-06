@@ -86,7 +86,7 @@ let waitForLeaderChange = function(oldLeaderEndpoint, followerEndpoint) {
       json: true
     }).then(res => {
       let currentLeaderEndpoint = res.configuration.pool[res.leaderId];
-      if (currentLeaderEndpoint == oldLeaderEndpoint) {
+      if (currentLeaderEndpoint === oldLeaderEndpoint) {
         return new Promise((resolve, reject) => {
           setTimeout(resolve, waitInterval);
         }).then(() => {
@@ -112,7 +112,7 @@ let waitForLeader = function(agents) {
       return result.leaderId;
     })
     .catch(err => {
-      if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+      if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE === "1") {
         console.log(
           new Date().toISOString() + " the agents throw an error: " + err
         );
@@ -126,7 +126,7 @@ let waitForLeader = function(agents) {
 };
 
 let getLeaderInstance = function(agents) {
-  if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+  if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE === "1") {
     console.log(new Date().toISOString() + " getting leader instance");
   }
   return waitForLeader(agents).then(leaderId => {
@@ -157,7 +157,7 @@ describe("Agency", function() {
       return instanceManager
         .startAgency({ agencySize: agentCount, agencyWaitForSync: true })
         .then(agents => {
-          if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
+          if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE === "1") {
             console.log(
               new Date().toISOString() + " successful started agents"
             );
@@ -167,7 +167,7 @@ describe("Agency", function() {
             .then(leaderInstance => {
               if (
                 process.env.LOG_IMMEDIATE &&
-                process.env.LOG_IMMEDIATE == "1"
+                process.env.LOG_IMMEDIATE === "1"
               ) {
                 console.log(new Date().toISOString() + "we got a leader");
               }
@@ -191,7 +191,7 @@ describe("Agency", function() {
             .then(() => {
               if (
                 process.env.LOG_IMMEDIATE &&
-                process.env.LOG_IMMEDIATE == "1"
+                process.env.LOG_IMMEDIATE === "1"
               ) {
                 console.log(new Date().toISOString() + " shutdown agents");
               }
@@ -202,7 +202,7 @@ describe("Agency", function() {
             .then(() => {
               if (
                 process.env.LOG_IMMEDIATE &&
-                process.env.LOG_IMMEDIATE == "1"
+                process.env.LOG_IMMEDIATE === "1"
               ) {
                 console.log(new Date().toISOString() + " reboot agents");
               }
@@ -213,7 +213,7 @@ describe("Agency", function() {
             .then(() => {
               if (
                 process.env.LOG_IMMEDIATE &&
-                process.env.LOG_IMMEDIATE == "1"
+                process.env.LOG_IMMEDIATE === "1"
               ) {
                 console.log(new Date().toISOString() + " reboot done");
               }
@@ -231,7 +231,7 @@ describe("Agency", function() {
             .then(result => {
               if (
                 process.env.LOG_IMMEDIATE &&
-                process.env.LOG_IMMEDIATE == "1"
+                process.env.LOG_IMMEDIATE === "1"
               ) {
                 console.log(new Date().toISOString() + " agency did respond");
               }
@@ -300,11 +300,12 @@ describe("Agency", function() {
           return waitForLeaderChange(leader.endpoint, followers[0].endpoint);
         })
         .then(res => {
+          // only look for '/hans' to avoid getting the '/arango' namespace
           return agencyRequest({
             method: "POST",
             url: endpointToUrl(followers[0].endpoint) + "/_api/agency/read",
             json: true,
-            body: [["/"]]
+            body: [["/hans"]]
           });
         })
         .then(result => {
@@ -319,6 +320,10 @@ describe("Agency", function() {
         .then(() => {
           return instanceManager.shutdown(leader);
         })
+        // the default max RAFT timeout is 5s. after this, the agency should
+        // have started a new election.
+        // TODO maybe its better to wait until the agency has a new leader?
+        .then(() => sleep(5e3))
         .then(() => {
           return instanceManager.restart(leader);
         })
@@ -352,7 +357,7 @@ describe("Agency", function() {
                 });
               },
               err => {
-                if (err.statusCode == 503) {
+                if (err.statusCode === 503) {
                   // retry immediately...
                   // we want to find errors and not grant 1s grace time
                   return upButNotLeader();
@@ -407,7 +412,7 @@ describe("Agency", function() {
                     "Couldn't find leader after " + retries + " retries"
                   )
                 );
-              } else if (err.code == "ECONNRESET" || err.statusCode == 503) {
+              } else if (err.code === "ECONNRESET" || err.statusCode === 503) {
                 return new Promise((resolve, reject) => {
                   setTimeout(function() {
                     retryUntilUpInner(fn).then(resolve, reject);

@@ -42,7 +42,7 @@ describe("Foxx service (dbserver)", function() {
         if (e instanceof FailoverError) {
           // This is expected! just continue
           debugLog(`waitForLeaderFailover: caught expected FailoverError ${e}`);
-        } if (e instanceof Error && e.message.startsWith('Unknown endpoint ')) {
+        } else if (e instanceof Error && e.message.startsWith('Unknown endpoint ')) {
           // This is expected! just continue
           debugLog(`waitForLeaderFailover: caught expected Error ${e}`);
         } else {
@@ -86,12 +86,15 @@ describe("Foxx service (dbserver)", function() {
   };
 
   beforeEach(() => im.startCluster(1, 2, 2));
+
   afterEach(async () => {
     const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
     const retainDir = currentTest.state === "failed";
     try {
       await im.cleanup(retainDir);
-    } catch (_) {}
+    } catch (e) {
+      console.error(`Error during cleanup: ${e}`);
+    }
   });
 
   describe("when already installed", function() {
@@ -116,7 +119,9 @@ describe("Foxx service (dbserver)", function() {
     it("should survive primary dbServer being replaced", async function() {
       const primary = await im.findPrimaryDbServer("_apps");
       await im.destroy(primary);
+      // replace with new endpoint
       await im.replace(primary, true);
+      await waitForLeaderFailover("_apps", primary);
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
       const response = await db.route(MOUNT).get();

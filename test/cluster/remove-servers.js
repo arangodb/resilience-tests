@@ -96,7 +96,8 @@ describe("Remove servers", function() {
         const health = response.Health;
         if(!health.hasOwnProperty(serverId)) {
           return Promise.reject(
-            new Error("Couldn't find a server in health struct")
+            new Error(`Couldn't find a server in health struct. `
+              + `Looking for ${serverId}, Health = ${JSON.stringify(health)}`)
           );
         }
 
