@@ -439,7 +439,7 @@ describe("Agency", function() {
               return writeData(instance, data2);
             })
               .then(() => {
-                return instanceManager.rpAgency({
+                return InstanceManager.rpAgency({
                   method: "POST",
                   url: endpointToUrl(instance.endpoint) + "/_api/agency/write",
                   json: true,

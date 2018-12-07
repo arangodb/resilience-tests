@@ -13,7 +13,7 @@ describe("Failover", function() {
   let db;
 
   let getLeader = function() {
-    return instanceManager
+    return InstanceManager
       .rpAgency({
         method: "POST",
         url:
