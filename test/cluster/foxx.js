@@ -68,7 +68,7 @@ describe("Foxx service (coordinator)", function() {
 
     it("should survive a single coordinator being added", async function() {
       const instance = await im.startCoordinator("coordinator-new");
-      await im.waitForInstance(instance);
+      await InstanceManager.waitForInstance(instance);
       im.instances = [...im.instances, instance];
       const db = arangojs(im.getEndpointUrl(instance));
       const response = await db.route(MOUNT).get();

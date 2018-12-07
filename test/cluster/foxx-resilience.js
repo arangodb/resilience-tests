@@ -332,7 +332,7 @@ function suiteNewCoordinator(params) {
         serviceInfos: params.servicesToInstall
       });
       const numbCoord = im.coordinators().length;
-      await im.waitForInstance(await im.startCoordinator("coordinator-new"));
+      await InstanceManager.waitForInstance(await im.startCoordinator("coordinator-new"));
       expect(im.coordinators().length).to.be.above(numbCoord);
       await checkAllServices(im, params.servicesToInstall);
     });
@@ -346,7 +346,7 @@ function suiteNewCoordinator(params) {
         );
       }
       const numbCoord = im.coordinators().length;
-      await im.waitForInstance(await im.startCoordinator("coordinator-new"));
+      await InstanceManager.waitForInstance(await im.startCoordinator("coordinator-new"));
       expect(im.coordinators().length).to.be.above(numbCoord);
       const servicesToCheck = params.servicesToInstall;
       for (const service of servicesToCheck) {

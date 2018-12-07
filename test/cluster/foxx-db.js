@@ -85,7 +85,10 @@ describe("Foxx service (dbserver)", function() {
     await im.waitForSyncReplication();
   };
 
-  beforeEach(() => im.startCluster(1, 2, 2));
+  beforeEach(async () => {
+    await im.startCluster(1, 2, 2);
+    await im.waitForSyncReplication();
+  });
 
   afterEach(async () => {
     const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
@@ -130,7 +133,7 @@ describe("Foxx service (dbserver)", function() {
 
     it("should survive a single dbServer being added", async function() {
       const instance = await im.startDbServer("dbServer-new");
-      await im.waitForInstance(instance);
+      await InstanceManager.waitForInstance(instance);
       im.instances = [...im.instances, instance];
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
