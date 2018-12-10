@@ -3,7 +3,7 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
-const rp = require("request-promise");
+const rp = require("request-promise-native");
 const _ = require("lodash");
 
 describe("Move shards", function() {

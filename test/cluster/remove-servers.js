@@ -3,7 +3,7 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
-const rp = require("request-promise");
+const rp = require("request-promise-native");
 
 describe("Remove servers", function() {
   let instanceManager = InstanceManager.create();

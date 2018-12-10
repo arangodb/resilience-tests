@@ -4,7 +4,7 @@ const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
 
 const expect = require("chai").expect;
-const rp = require("request-promise");
+const rp = require("request-promise-native");
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 

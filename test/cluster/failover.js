@@ -3,7 +3,7 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
-const rp = require("request-promise");
+const rp = require("request-promise-native");
 const fs = require("fs");
 // Arango error code for "shutdown in progress"
 const ERROR_SHUTTING_DOWN = 30;
