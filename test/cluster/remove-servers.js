@@ -2,231 +2,180 @@
 "use strict";
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
-const arangojs = require("arangojs");
 const rp = require("request-promise-native");
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 describe("Remove servers", function() {
-  let instanceManager = InstanceManager.create();
-  before(function(done) {
+  const instanceManager = InstanceManager.create();
+
+  before(async function() {
     // should really be implemented somewhere more central :S
-    instanceManager
-      .startAgency({ agencySize: 1, agencyWaitForSync: false })
-      .then(agents => {
-        return instanceManager.waitForAllInstances();
-      })
-      .then(agents => {
-        return rp({
-          url: instanceManager.getEndpointUrl(agents[0]) + "/_api/version",
-          json: true
-        });
-      })
-      .then(version => {
-        let parts = version.version.split(".").map(num => parseInt(num, 10));
-        if (parts[0] < 3 || parts[1] < 2) {
-          try {
-            this.skip();
-          } catch (e) {
-            // this is sad...somehow there will always be an error like this without the explicit done and catch here :S
-            //(node:28217) Warning: a promise was rejected with a non-error: [object Object]
-            //Unhandled rejection (<{"message":"async skip; aborting execu...>, no stack trace)
-          }
-        }
-      })
-      .then(() => {
-        return instanceManager.cleanup();
-      })
-      .then(() => {
-        done();
-      })
-      .catch(e => {
-        done(e);
-      });
+    const agents = await instanceManager
+      .startAgency({ agencySize: 1, agencyWaitForSync: false });
+    await instanceManager.waitForAllInstances();
+    const version = await rp({
+      url: instanceManager.getEndpointUrl(agents[0]) + "/_api/version",
+      json: true
+    });
+    const parts = version.version.split(".")
+      .map(num => parseInt(num, 10));
+    if (parts[0] < 3 || parts[1] < 2) {
+      this.skip();
+    }
+    await instanceManager.cleanup();
   });
 
-  let waitForHealth = function(serverEndpoint, maxTime) {
-    let coordinator = instanceManager
+  const waitForHealth = async function(serverEndpoint, maxTime) {
+    const coordinator = instanceManager
       .coordinators()
       .filter(server => server.status === "RUNNING")[0];
-    return rp({
-      url:
-        instanceManager.getEndpointUrl(coordinator) + "/_admin/cluster/health",
-      json: true
-    })
-      .then(health => {
-        health = health.Health;
-        let serverId = Object.keys(health).filter(serverId => {
+    for (
+      const start = Date.now();
+      Date.now() - start < maxTime;
+      await sleep(100)
+    ) {
+      try {
+        const response = await rp({
+          url: instanceManager.getEndpointUrl(coordinator)
+            + "/_admin/cluster/health",
+          json: true
+        });
+        const health = response.Health;
+        const serverId = Object.keys(health).filter(serverId => {
           return health[serverId].Endpoint === serverEndpoint;
         })[0];
 
-        if (serverId === undefined) {
-          return Promise.reject(
-            new Error("Couldn't find a server in health struct")
-          );
-        } else {
+        if (serverId !== undefined) {
           return health[serverId];
         }
-      })
-      .catch(
-        () => {
-          if (maxTime > Date.now()) {
-            return new Promise((resolve, reject) => {
-              setTimeout(resolve, 100);
-            }).then(() => {
-              return waitForHealth(serverEndpoint, maxTime);
-            });
-          } else {
-            return Promise.reject(
-              new Error("Server did not go failed in time!")
-            );
-          }
-        }
-      );
+      } catch (e) {
+      }
+    }
+    throw new Error("Server did not go failed in time!");
   };
 
-  let waitForFailedHealth = function(serverId, maxTime) {
-    let coordinator = instanceManager
+  const waitForFailedHealth = async function(serverId, maxTime) {
+    const coordinator = instanceManager
       .coordinators()
       .filter(server => server.status === "RUNNING")[0];
-    return rp({
-      url:
-        instanceManager.getEndpointUrl(coordinator) + "/_admin/cluster/health",
-      json: true
-    })
-      .then(response => {
-        const health = response.Health;
-        if(!health.hasOwnProperty(serverId)) {
-          return Promise.reject(
-            new Error(`Couldn't find a server in health struct. `
-              + `Looking for ${serverId}, Health = ${JSON.stringify(health)}`)
-          );
-        }
 
-        return health[serverId];
-      })
-      .then(healthServer => {
-        if (healthServer.Status !== "FAILED") {
-          if (maxTime > Date.now()) {
-            return new Promise((resolve, reject) => {
-              setTimeout(resolve, 100);
-            }).then(() => {
-              return waitForFailedHealth(serverId, maxTime);
-            });
-          } else {
-            return Promise.reject(
-              new Error("Server did not go failed in time!")
-            );
-          }
-        }
-        return true;
+    for (
+      const start = Date.now();
+      Date.now() - start < maxTime;
+      await sleep(100)
+    ) {
+      const response = await rp({
+        url: instanceManager.getEndpointUrl(coordinator)
+          + "/_admin/cluster/health",
+        json: true
       });
+      const health = response.Health;
+      if (!health.hasOwnProperty(serverId)) {
+        throw new Error(`Couldn't find a server in health struct. `
+          + `Looking for ${serverId}, Health = ${JSON.stringify(health)}`);
+      }
+
+      const healthServer = health[serverId];
+      if (healthServer.Status === "FAILED") {
+        return true;
+      }
+    }
+    throw new Error("Server did not go failed in time!");
   };
 
-  afterEach(function() {
+  afterEach(async function() {
     instanceManager.moveServerLogs(this.currentTest);
     const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
     const retainDir = currentTest.state === "failed";
-    return instanceManager.cleanup(retainDir);
+    await instanceManager.cleanup(retainDir);
   });
-  it("should mark a failed coordinator failed after a while", function() {
-    return instanceManager
-      .startCluster(1, 2, 2)
-      .then(() => {
-        let coordinator = instanceManager.coordinators()[1];
-        return instanceManager.shutdown(coordinator).then(() => {
-          return coordinator;
-        });
-      })
-      .then(coordinator => {
-        return waitForFailedHealth(coordinator.id, Date.now() + 60000);
+
+  it("should mark a failed coordinator failed after a while", async function() {
+    await instanceManager.startCluster(1, 2, 2);
+    const coordinator = instanceManager.coordinators()[1];
+    await instanceManager.shutdown(coordinator);
+    await waitForFailedHealth(coordinator.id, Date.now() + 60000);
+  });
+
+  it("should not be possible to remove a running coordinator", async function() {
+    await instanceManager.startCluster(1, 2, 2);
+    const response = await rp({
+      url: instanceManager.getEndpointUrl() + "/_admin/cluster/health",
+      json: true
+    });
+    const health = response.Health;
+    const serverId = Object.keys(health).filter(serverId => {
+      return health[serverId].Role === "Coordinator";
+    })[0];
+
+
+    let exception = null;
+
+    try {
+      await rp({
+        url:
+          instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
+        json: true,
+        method: "post",
+        body: serverId
       });
-  });
-  it("should not be possible to remove a running coordinator", function() {
-    return instanceManager
-      .startCluster(1, 2, 2)
-      .then(() => {
-        return rp({
-          url: instanceManager.getEndpointUrl() + "/_admin/cluster/health",
-          json: true
-        });
-      })
-      .then(health => {
-        health = health.Health;
-        let serverId = Object.keys(health).filter(serverId => {
-          return health[serverId].Role === "Coordinator";
-        })[0];
-        return rp({
-          url:
-            instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
-          json: true,
-          method: "post",
-          body: serverId
-        });
-      })
-      .then(
-        () => {
-          return Promise.reject(
-            new Error(
-              "What? Removing a server that is active should not be possible"
-            )
-          );
-        },
-        err => {
-          expect(err.statusCode).to.eql(412);
-        }
+    } catch (err) {
+      exception = err;
+    }
+
+    if (exception === null) {
+      throw new Error(
+        "What? Removing a server that is active should not be possible"
       );
+    }
+
+    expect(exception.statusCode).to.eql(412);
   });
-  it("should raise a proper error when removing a non existing server", function() {
-    return instanceManager
-      .startCluster(1, 2, 2)
-      .then(() => {
-        return rp({
-          url:
-            instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
-          json: true,
-          method: "post",
-          body: "der hund"
-        });
-      })
-      .then(
-        () => {
-          return Promise.reject(
-            new Error(
-              "What? Removing a non existing server should not be possible"
-            )
-          );
-        },
-        err => {
-          expect(err.statusCode).to.eql(404);
-        }
-      );
-  });
-  it("should be able to remove a failed coordinator", function() {
-    return instanceManager
-      .startCluster(1, 2, 2)
-      .then(() => {
-        let coordinator = instanceManager.coordinators()[1];
-        return instanceManager.shutdown(coordinator).then(() => {
-          return coordinator;
-        });
-      })
-      .then(coordinator => {
-        return waitForFailedHealth(
-          coordinator.id,
-          Date.now() + 60000
-        ).then(() => {
-          return coordinator;
-        });
-      })
-      .then(coordinator => {
-        return rp({
-          url:
-            instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
-          json: true,
-          method: "post",
-          body: coordinator.id,
-        });
+
+  it("should raise a proper error when removing a non existing server", async function() {
+    await instanceManager.startCluster(1, 2, 2);
+
+    let exception = null;
+    try {
+      await rp({
+        url:
+          instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
+        json: true,
+        method: "post",
+        body: "der hund"
       });
+    } catch(err) {
+      exception = err;
+    }
+
+    if (exception === null) {
+      throw new Error(
+        "What? Removing a non existing server should not be possible"
+      );
+    }
+
+    expect(exception.statusCode).to.eql(404);
   });
+
+  it("should be able to remove a failed coordinator", async function() {
+    await instanceManager.startCluster(1, 2, 2);
+    const coordinator = instanceManager.coordinators()[1];
+    await instanceManager.shutdown(coordinator);
+    await waitForFailedHealth(
+      coordinator.id,
+      Date.now() + 60000
+    );
+
+    await rp({
+      url:
+        instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
+      json: true,
+      method: "post",
+      body: coordinator.id,
+    });
+  });
+
   it("should be able to remove a failed dbserver which has no responsibilities", async function() {
     await instanceManager.startCluster(1, 2, 2);
     const dbserver = await instanceManager.startDbServer("fauler-hund");

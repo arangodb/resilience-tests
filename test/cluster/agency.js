@@ -76,9 +76,11 @@ const waitForReintegration = async (endpoint) => {
 };
 
 const waitForLeaderChange = async function(oldLeaderEndpoint, followerEndpoint) {
+  const isNonEmptyString = x => _.isString(x) && x !== '';
+
   for (
     const start = Date.now();
-    Date.now() - start < 10e3;
+    Date.now() - start < 30e3;
     await sleep(50)
   ) {
     const res = await rp({
@@ -86,11 +88,16 @@ const waitForLeaderChange = async function(oldLeaderEndpoint, followerEndpoint) 
       json: true
     });
 
-    const currentLeaderEndpoint = res.configuration.pool[res.leaderId];
-    if (currentLeaderEndpoint !== oldLeaderEndpoint) {
-      return;
+    if (isNonEmptyString(res.leaderId)) {
+      const currentLeaderEndpoint = res.configuration.pool[res.leaderId];
+      if (currentLeaderEndpoint !== oldLeaderEndpoint) {
+        debugLog(`currentLeaderEndpoint = ${currentLeaderEndpoint}, oldLeaderEndpoint = ${oldLeaderEndpoint}`);
+        return;
+      }
     }
   }
+
+  throw new Error(`Didn't find an updated leader after 30s`);
 };
 
 const waitForLeader = async function(agents) {
@@ -276,7 +283,7 @@ describe("Agency", function() {
         expect(lastError.statusCode).to.equal(307);
       };
 
-      return await upButNotLeader();
+      await upButNotLeader();
     });
 
     it("should reintegrate a crashed follower", async function() {
