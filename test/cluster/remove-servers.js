@@ -227,43 +227,21 @@ describe("Remove servers", function() {
         });
       });
   });
-  it("should be able to remove a failed dbserver which has no responsibilities", function() {
-    return instanceManager
-      .startCluster(1, 2, 2)
-      .then(() => {
-        return instanceManager.startDbServer("fauler-hund").then(dbserver => {
-          return instanceManager
-            .waitForAllInstances()
-            .then(() => {
-              return waitForHealth(dbserver.endpoint, Date.now() + 60000);
-            })
-            .then(() => {
-              return dbserver;
-            })
-            .then(() => {
-              return instanceManager.shutdown(dbserver);
-            })
-            .then(() => {
-              return dbserver;
-            });
-        });
-      })
-      .then(dbserver => {
-        return waitForFailedHealth(
-          dbserver.id,
-          Date.now() + 60000
-        ).then(() => {
-          return dbserver;
-        });
-      })
-      .then(dbserver => {
-        return rp({
-          url:
-            instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
-          json: true,
-          method: "post",
-          body: dbserver.id,
-        });
-      });
+  it("should be able to remove a failed dbserver which has no responsibilities", async function() {
+    await instanceManager.startCluster(1, 2, 2);
+    const dbserver = await instanceManager.startDbServer("fauler-hund");
+    await instanceManager.waitForAllInstances();
+    await instanceManager.addIdsToAllInstances();
+    await waitForHealth(dbserver.endpoint, Date.now() + 60000);
+    await instanceManager.shutdown(dbserver);
+    await waitForFailedHealth(dbserver.id, Date.now() + 60000);
+
+    await rp({
+      url:
+        instanceManager.getEndpointUrl() + "/_admin/cluster/removeServer",
+      json: true,
+      method: "post",
+      body: dbserver.id,
+    });
   });
 });
