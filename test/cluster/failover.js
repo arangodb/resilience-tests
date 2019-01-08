@@ -67,7 +67,7 @@ describe("Failover", function() {
     expect(count.count).to.equal(8);
   });
 
-  it.only("should allow importing even when a leader fails", async function() {
+  it("should allow importing even when a leader fails", async function() {
     const docs = [...Array(10000)]
       .map((_, key) => ({
         _key: "k" + key,

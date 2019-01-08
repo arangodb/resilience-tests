@@ -6,6 +6,12 @@ const arangojs = require("arangojs");
 const rp = require("request-promise-native");
 const _ = require("lodash");
 
+const debugLog = (...args) => {
+  if (process.env.LOG_IMMEDIATE === "1") {
+    console.log(new Date().toISOString(), ' ', ...args);
+  }
+};
+
 describe("Move shards", function() {
   let instanceManager = InstanceManager.create();
   let db;
@@ -181,12 +187,12 @@ describe("Move shards", function() {
 
     return insertDocuments()
       .then(() => {
-        console.log("Done inserting 10000 docs.");
+        debugLog("Done inserting 10000 docs.");
         moveShards.stop = true;
         return movePromise;
       })
       .then(() => {
-        console.log("movePromise resolved");
+        debugLog("movePromise resolved");
         return db.collection("testcollection").count();
       })
       .then(collectionCount => {
