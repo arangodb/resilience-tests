@@ -9,6 +9,12 @@ const expect = require("chai").expect;
 
 const sleep = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
+const debugLog = (...args) => {
+  if (process.env.LOG_IMMEDIATE === "1") {
+    console.log(new Date().toISOString(), ' ', ...args);
+  }
+};
+
 describe("Testing failing followers", async function() {
   const instanceManager = InstanceManager.create();
 
@@ -66,7 +72,7 @@ describe("Testing failing followers", async function() {
         await generateData(db, numDocs);
 
         for (; f > 0; f--) {
-          console.log("Waiting for tick synchronization...");
+          debugLog("Waiting for tick synchronization...");
           let inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
           expect(inSync).to.equal(
             true,
@@ -86,7 +92,7 @@ describe("Testing failing followers", async function() {
             );
           let i = Math.floor(Math.random() * followers.length);
           const follower = followers[i];
-          console.log("killing follower %s", follower.endpoint);
+          debugLog("killing follower %s", follower.endpoint);
           await instanceManager.kill(follower);
 
           await sleep(1000);
@@ -111,7 +117,7 @@ describe("Testing failing followers", async function() {
           await checkData(db, numDocs);
 
           await instanceManager.restart(follower);
-          console.log("killed follower instance restarted");
+          debugLog("killed follower instance restarted");
         }
       });
     });
@@ -135,7 +141,7 @@ describe("Testing failing followers", async function() {
         await generateData(db, numDocs);
 
         for (; f > 0; f--) {
-          console.log("Waiting for tick synchronization...");
+          debugLog("Waiting for tick synchronization...");
           let inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
           expect(inSync).to.equal(
             true,
@@ -155,7 +161,7 @@ describe("Testing failing followers", async function() {
             );
           let i = Math.floor(Math.random() * followers.length);
           const follower = followers[i];
-          console.log("killing follower %s", follower.endpoint);
+          debugLog("killing follower %s", follower.endpoint);
           await instanceManager.kill(follower);
 
           await sleep(1000);

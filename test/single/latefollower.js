@@ -7,6 +7,12 @@ const endpointToUrl = InstanceManager.endpointToUrl;
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
 
+const debugLog = (...args) => {
+  if (process.env.LOG_IMMEDIATE === "1") {
+    console.log(new Date().toISOString(), ' ', ...args);
+  }
+};
+
 describe("Adding late followers", async function() {
   const instanceManager = InstanceManager.create();
 
@@ -74,7 +80,7 @@ describe("Adding late followers", async function() {
           await generateData(db, numDocs);
           expectedNumDocs += numDocs;
 
-          console.log("Waiting for tick synchronization...");
+          debugLog("Waiting for tick synchronization...");
           let inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
           expect(inSync).to.equal(
             true,

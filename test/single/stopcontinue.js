@@ -10,6 +10,12 @@ const expect = require("chai").expect;
 
 const sleep = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
+const debugLog = (...args) => {
+  if (process.env.LOG_IMMEDIATE === "1") {
+    console.log(new Date().toISOString(), ' ', ...args);
+  }
+};
+
 /// return the list of endpoints, in a normal cluster this is the list of
 /// coordinator endpoints.
 async function requestEndpoints(url) {
@@ -99,7 +105,7 @@ describe("Temporary stopping", async function() {
           await generateData(db, numDocs);
           expectedNumDocs += numDocs;
 
-          console.log("Waiting for tick synchronization...");
+          debugLog("Waiting for tick synchronization...");
           const inSync = await instanceManager.asyncReplicationTicksInSync(
             120.0
           );
@@ -113,7 +119,7 @@ describe("Temporary stopping", async function() {
             uuid
           );
 
-          console.log("stopping leader %s", leader.endpoint);
+          debugLog("stopping leader %s", leader.endpoint);
           instanceManager.sigstop(leader);
           const old = leader;
 
@@ -122,7 +128,7 @@ describe("Temporary stopping", async function() {
           leader = await instanceManager.asyncReplicationLeaderInstance();
 
           instanceManager.sigcontinue(old);
-          console.log("stopped instance continued");
+          debugLog("stopped instance continued");
 
           db = arangojs({
             url: endpointToUrl(leader.endpoint),
@@ -157,7 +163,7 @@ describe("Temporary stopping", async function() {
       await generateData(db, numDocs);
       expectedNumDocs += numDocs;
 
-      console.log("Waiting for tick synchronization...");
+      debugLog("Waiting for tick synchronization...");
       let inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
       expect(inSync).to.equal(
         true,
@@ -174,7 +180,7 @@ describe("Temporary stopping", async function() {
         );
       let i = Math.floor(Math.random() * followers.length);
       const follower = followers[i];
-      console.log("stopping follower %s", follower.endpoint);
+      debugLog("stopping follower %s", follower.endpoint);
       instanceManager.sigstop(follower);
 
       await sleep(1000);
@@ -194,7 +200,7 @@ describe("Temporary stopping", async function() {
       await checkData(db, expectedNumDocs);
 
       instanceManager.sigcontinue(follower);
-      console.log("stopped follower instance continued");
+      debugLog("stopped follower instance continued");
     }
   });
 
@@ -219,7 +225,7 @@ describe("Temporary stopping", async function() {
       await generateData(db, numDocs);
       expectedNumDocs += numDocs;
 
-      console.log("Waiting for tick synchronization...");
+      debugLog("Waiting for tick synchronization...");
       let inSync = await instanceManager.asyncReplicationTicksInSync(120.0);
       expect(inSync).to.equal(
         true,
@@ -229,11 +235,11 @@ describe("Temporary stopping", async function() {
       // leader should not change
       expect(await instanceManager.asyncReplicationLeaderId()).to.equal(uuid);
 
-      console.log("stopping leader %s", leader.endpoint);
+      debugLog("stopping leader %s", leader.endpoint);
       instanceManager.sigstop(leader);
       await sleep(1000); // simulate a short network hickup
       instanceManager.sigcontinue(leader);
-      console.log("stopped leader instance continued");
+      debugLog("stopped leader instance continued");
 
       // leader should not change
       await sleep(2000);
