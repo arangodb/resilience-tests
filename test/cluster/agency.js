@@ -117,7 +117,6 @@ const waitForLeader = async function(agents) {
         return result.leaderId;
       }
     } catch(err) {
-      debugLog("the agents throw an error: ", err);
     }
   }
 };
