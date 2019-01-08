@@ -3,17 +3,10 @@
 
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
+const {sleep, debugLog} = require('../../utils');
 
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
-
-const sleep = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
-
-const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE === "1") {
-    console.log(new Date().toISOString(), ' ', ...args);
-  }
-};
 
 describe("Testing failing followers", async function() {
   const instanceManager = InstanceManager.create();

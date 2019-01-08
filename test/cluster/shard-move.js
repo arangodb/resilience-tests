@@ -5,12 +5,7 @@ const expect = require("chai").expect;
 const arangojs = require("arangojs");
 const rp = require("request-promise-native");
 const _ = require("lodash");
-
-const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE === "1") {
-    console.log(new Date().toISOString(), ' ', ...args);
-  }
-};
+const {debugLog} = require('../../utils');
 
 describe("Move shards", function() {
   let instanceManager = InstanceManager.create();

@@ -3,8 +3,7 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const {sleep} = require('../../utils');
 
 // Arango error code for "shutdown in progress"
 const ERROR_SHUTTING_DOWN = 30;

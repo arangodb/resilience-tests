@@ -21,13 +21,7 @@ const SERVICE_1_CHECKSUM = "69d01a5c";
 const SERVICE_1_RESULT = "service1";
 const MOUNT_1 = "/resiliencetestservice1";
 
-const sleep = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
-
-const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE === "1") {
-    console.log(new Date().toISOString(), ' ', ...args);
-  }
-};
+const {sleep, debugLog} = require('../../utils');
 
 describe("Foxx service", async function() {
   const instanceManager = InstanceManager.create();
@@ -59,6 +53,7 @@ describe("Foxx service", async function() {
     await instanceManager.startSingleServer("single", 2);
     await instanceManager.waitForAllInstances();
 
+    let uuid = await instanceManager.asyncReplicationLeaderSelected();
     let leader = await instanceManager.asyncReplicationLeaderInstance();
 
     debugLog("installing foxx app on %s", leader.endpoint);
@@ -78,6 +73,7 @@ describe("Foxx service", async function() {
     debugLog("killing leader %s", leader.endpoint);
     await instanceManager.kill(leader);
 
+    uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
     leader = await instanceManager.asyncReplicationLeaderInstance();
 
     // just to be sure the foxx queue got a chance to run
@@ -94,6 +90,7 @@ describe("Foxx service", async function() {
     await instanceManager.startSingleServer("single", 2);
     await instanceManager.waitForAllInstances();
 
+    let uuid = await instanceManager.asyncReplicationLeaderSelected();
     let leader = await instanceManager.asyncReplicationLeaderInstance();
 
     debugLog("installing foxx app on %s", leader.endpoint);
@@ -113,7 +110,7 @@ describe("Foxx service", async function() {
         .map(i => coll.save({ test: i }))
     );
     let cc = await coll.count();
-    debugLog(cc);
+    debugLog("cc=", cc);
     expect(cc.count).to.be.eq(1000);
 
     // wait for followers to get in sync
@@ -126,6 +123,7 @@ describe("Foxx service", async function() {
     debugLog("killing leader %s", leader.endpoint);
     await instanceManager.kill(leader);
 
+    uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
     leader = await instanceManager.asyncReplicationLeaderInstance();
 
     // just to be sure the foxx queue got a chance to run
@@ -215,7 +213,7 @@ async function configServices(endpointUrl, configs, urConfig) {
 
 async function checkServices(endpointUrl, services, check) {
   for (const [mount, expectedResult] of services) {
-    if (expectedResult != undefined)
+    if (expectedResult !== undefined)
       await check(endpointUrl, mount, expectedResult);
   }
 }
@@ -256,9 +254,9 @@ async function checkBundleExists(endpointUrl, mount, expectedResult) {
         expect(e.code).to.equal(404);
         return;
       }
+      debugLog("", e);
       throw new Error(
-        "Exception during bundle check: %s",
-        e.errorMessage || e.errorNum
+        `Exception during bundle check: ${e.errorMessage || e.errorNum}`
       );
     }
     expect(response.statusCode).to.equal(200);

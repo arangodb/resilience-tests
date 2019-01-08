@@ -5,10 +5,10 @@ const readFileSync = require("fs").readFileSync;
 const InstanceManager = require("../../InstanceManager.js");
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
+const {sleep, debugLog} = require('../../utils');
 const FailoverError = InstanceManager.FailoverError;
 // Wait 100s this is rather long and should retain on slow machines also
 const MAX_FAILOVER_TIMEOUT_MS = 1000000;
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const noop = () => {};
 const service1 = readFileSync(
@@ -18,12 +18,6 @@ const service2 = readFileSync(
   join(__dirname, "..", "..", "fixtures", "service2.zip")
 );
 const retryIntervalMS = 10000;
-
-const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE === "1") {
-    console.log(new Date().toISOString(), ' ', ...args);
-  }
-};
 
 describe("Foxx service (dbserver)", function() {
   const im = InstanceManager.create();

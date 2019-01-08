@@ -5,6 +5,7 @@ const readFileSync = require("fs").readFileSync;
 const InstanceManager = require("../../InstanceManager.js");
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
+const {sleep, debugLog} = require('../../utils');
 
 const noop = () => {};
 const service1 = readFileSync(
@@ -13,14 +14,6 @@ const service1 = readFileSync(
 const service2 = readFileSync(
   join(__dirname, "..", "..", "fixtures", "service2.zip")
 );
-
-const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE === "1") {
-    console.log(new Date().toISOString(), ' ', ...args);
-  }
-};
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 describe("Foxx service (coordinator)", function() {
   const im = InstanceManager.create();

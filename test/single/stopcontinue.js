@@ -3,38 +3,10 @@
 
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
+const {sleep, debugLog} = require('../../utils');
 
-const rp = require("request-promise-native");
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
-
-const sleep = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
-
-const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE === "1") {
-    console.log(new Date().toISOString(), ' ', ...args);
-  }
-};
-
-/// return the list of endpoints, in a normal cluster this is the list of
-/// coordinator endpoints.
-async function requestEndpoints(url) {
-  url = endpointToUrl(url);
-  const body = await rp.get({
-    uri: `${url}/_api/cluster/endpoints`,
-    json: true
-  });
-  if (body.error) {
-    throw new Error(body);
-  }
-  if (!body.endpoints || body.endpoints.length == 0) {
-    throw new Error(
-      `AsyncReplication: not all servers ready. Have ${body.endpoints
-        .length} servers`
-    );
-  }
-  return body.endpoints;
-}
 
 describe("Temporary stopping", async function() {
   const instanceManager = InstanceManager.create();

@@ -3,15 +3,11 @@
 
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
+const {debugLog} = require('../../utils');
 
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
 
-const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE === "1") {
-    console.log(new Date().toISOString(), ' ', ...args);
-  }
-};
 
 describe("Adding late followers", async function() {
   const instanceManager = InstanceManager.create();

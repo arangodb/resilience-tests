@@ -3,19 +3,12 @@
 
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
+const {sleep, debugLog} = require('../../utils');
 
 const rp = require("request-promise-native");
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
 const _ = require('lodash');
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE === "1") {
-    console.log(new Date().toISOString(), ' ', ...args);
-  }
-};
 
 // <copied from agency.js>
 const agencyRequest = async function(options) {

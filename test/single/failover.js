@@ -3,16 +3,12 @@
 
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
+const {debugLog} = require('../../utils');
 
 const rp = require("request-promise-native");
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
 
-const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE === "1") {
-    console.log(new Date().toISOString(), ' ', ...args);
-  }
-};
 
 /// return the list of endpoints, in a normal cluster this is the list of
 /// coordinator endpoints.

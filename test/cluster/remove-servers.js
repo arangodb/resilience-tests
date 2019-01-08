@@ -3,8 +3,7 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const rp = require("request-promise-native");
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const {sleep} = require('../../utils');
 
 describe("Remove servers", function() {
   const instanceManager = InstanceManager.create();
