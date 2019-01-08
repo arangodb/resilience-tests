@@ -31,6 +31,7 @@ const agencyRequest = async function(options) {
       }
     }
   }
+
   throw new Error("no leader after 5 retries");
 };
 
@@ -129,11 +130,12 @@ const getLeaderInstance = async function(agents) {
     json: true
   });
 
-  return agents
-    .find(async agent => {
-      const result = await getAgencyConfig(agent);
-      return result.configuration.id === leaderId;
-    });
+  for (const agent of agents) {
+    const result = await getAgencyConfig(agent);
+    if (result.configuration.id === leaderId) {
+      return agent;
+    }
+  }
 };
 
 describe("Agency", function() {
@@ -318,8 +320,10 @@ describe("Agency", function() {
             }
           }
         }
+
         throw new Error("Couldn't find leader after 30s");
       };
+
       for (let i = 0; i < instanceManager.instances.length * 2; i++) {
           const data = [[{ subba: { op: "increment" } }, {}, "funny" + i]];
           const data2 = [[{ dummy: 1 }]];

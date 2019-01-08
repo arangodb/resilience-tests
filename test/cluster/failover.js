@@ -9,6 +9,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // Arango error code for "shutdown in progress"
 const ERROR_SHUTTING_DOWN = 30;
 
+
 describe("Failover", function() {
   const instanceManager = InstanceManager.create();
   let db;
@@ -121,18 +122,18 @@ describe("Failover", function() {
     ]);
 
     const count = await db.collection("testcollection").count();
-    expect(count.count).to.be.least(10007 - 10 * failures);
-    expect(count.count).to.be.most(10007);
-    expect(failures).to.be.most(1);
+    expect(count.count).to.be.at.least(10007 - 10 * failures);
+    expect(count.count).to.be.at.most(10007);
+    expect(failures).to.be.at.most(1);
     const cursor = await db.collection("testcollection").all();
     const savedDocs = await cursor.all();
-    expect(savedDocs.length).to.be.least(10007 - 10 * failures);
-    expect(savedDocs.length).to.be.most(10007);
+    expect(savedDocs.length).to.be.at.least(10007 - 10 * failures);
+    expect(savedDocs.length).to.be.at.most(10007);
   });
 
   afterEach(async function() {
     const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
     const retainDir = currentTest.state === "failed";
-    return await instanceManager.cleanup(retainDir);
+    await instanceManager.cleanup(retainDir);
   });
 });

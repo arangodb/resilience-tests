@@ -4,10 +4,8 @@
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
 
-const rp = require("request-promise-native");
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
-const sleep = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
 describe("Adding late followers", async function() {
   const instanceManager = InstanceManager.create();
@@ -16,20 +14,23 @@ describe("Adding late followers", async function() {
     await instanceManager.startAgency({ agencySize: 1 });
   });
 
-  afterEach(function() {
+  afterEach(async function() {
     const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
     const retainDir = currentTest.state === "failed";
     instanceManager.moveServerLogs(currentTest);
-    return instanceManager.cleanup(retainDir).catch(() => {});
+    try {
+      await instanceManager.cleanup(retainDir);
+    } catch(e) {
+    }
   });
 
   async function generateData(db, num) {
-    let coll = await db.collection("testcollection");
+    const coll = await db.collection("testcollection");
     let cc = 0;
     try {
-      let data = await coll.get();
+      await coll.get();
       // collection exists
-      data = await coll.count();
+      const data = await coll.count();
       cc += data.count;
     } catch (e) {
       await coll.create();
@@ -42,12 +43,12 @@ describe("Adding late followers", async function() {
   }
 
   async function checkData(db, num) {
-    let cursor = await db.query(`FOR x IN testcollection
+    const cursor = await db.query(`FOR x IN testcollection
                                   SORT x.test ASC RETURN x`);
     expect(cursor.hasNext()).to.equal(true);
     let i = 0;
     while (cursor.hasNext()) {
-      let doc = await cursor.next();
+      const doc = await cursor.next();
       expect(doc.test).to.equal(i++, "unexpected document on server ");
     }
     expect(i).to.equal(num, "not all documents on server");
