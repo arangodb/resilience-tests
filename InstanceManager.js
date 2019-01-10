@@ -31,3 +31,5 @@ exports.create = () => {
 
 exports.endpointToUrl = aim.endpointToUrl;
 exports.FailoverError = aim.FailoverError;
+exports.waitForInstance = aim.InstanceManager.waitForInstance;
+exports.rpAgency = aim.InstanceManager.rpAgency;

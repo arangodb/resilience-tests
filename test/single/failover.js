@@ -3,11 +3,12 @@
 
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
+const {debugLog} = require('../../utils');
 
-const rp = require("request-promise");
+const rp = require("request-promise-native");
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
-const sleep = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
+
 
 /// return the list of endpoints, in a normal cluster this is the list of
 /// coordinator endpoints.
@@ -20,7 +21,7 @@ async function requestEndpoints(url) {
   if (body.error) {
     throw new Error(body);
   }
-  if (!body.endpoints || body.endpoints.length == 0) {
+  if (!body.endpoints || body.endpoints.length === 0) {
     throw new Error(
       `AsyncReplication: not all servers ready. Have ${body.endpoints
         .length} servers`
@@ -36,11 +37,14 @@ describe("Leader-Follower failover", async function() {
     await instanceManager.startAgency({ agencySize: 1 });
   });
 
-  afterEach(function() {
+  afterEach(async function() {
     const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
     const retainDir = currentTest.state === "failed";
     instanceManager.moveServerLogs(currentTest);
-    return instanceManager.cleanup(retainDir).catch(() => {});
+    try {
+      await instanceManager.cleanup(retainDir);
+    } catch(e) {
+    }
   });
 
   // no actual data is transmitted, only heartbeat thread is tested
@@ -48,7 +52,7 @@ describe("Leader-Follower failover", async function() {
     /// check tick values synchronize, check endpoints
     /// TODO check for redirects to leader
     async function doServerChecks(n, leader) {
-      console.log("Waiting for tick synchronization...");
+      debugLog("Waiting for tick synchronization...");
       if (n > 1) {
         // n includes leader, method will throw without slaves
         const inSync = await instanceManager.asyncReplicationTicksInSync(60.0);
@@ -58,15 +62,15 @@ describe("Leader-Follower failover", async function() {
         );
       }
 
-      console.log("Checking endpoints...");
+      debugLog("Checking endpoints...");
       /// make sure all servers know the leader
-      let servers = instanceManager
+      const servers = instanceManager
         .singleServers()
         .filter(inst => inst.status === "RUNNING");
       expect(servers).to.have.lengthOf(n);
       for (let x = 0; x < servers.length; x++) {
-        let url = endpointToUrl(servers[x].endpoint);
-        let body = await rp.get({
+        const url = endpointToUrl(servers[x].endpoint);
+        const body = await rp.get({
           uri: `${url}/_admin/server/role`,
           json: true
         });
@@ -76,9 +80,9 @@ describe("Leader-Follower failover", async function() {
         );
         //  TODO check location header on other APIs
 
-        let list = await requestEndpoints(servers[x].endpoint);
-        console.log("Endpoints list: %s", JSON.stringify(list));
-        console.log("expected: %s", JSON.stringify(leader.endpoint));
+        const list = await requestEndpoints(servers[x].endpoint);
+        debugLog("Endpoints list: %s", JSON.stringify(list));
+        debugLog("expected: %s", JSON.stringify(leader.endpoint));
         expect(list[0]).to.have.property("endpoint");
         expect(list[0].endpoint).to.equal(leader.endpoint);
         // Could also check for presence of all follower endpoints,
@@ -93,8 +97,8 @@ describe("Leader-Follower failover", async function() {
         await instanceManager.waitForAllInstances();
 
         // get current leader
-        let uuid = await instanceManager.asyncReplicationLeaderSelected();
-        console.log("Leader selected");
+        const uuid = await instanceManager.asyncReplicationLeaderSelected();
+        debugLog("Leader selected");
         const leader = await instanceManager.asyncReplicationLeaderInstance();
 
         await doServerChecks(n, leader);
@@ -120,9 +124,9 @@ describe("Leader-Follower failover", async function() {
             uuid
           );
 
-          console.log("killing leader %s", leader.endpoint);
+          debugLog("killing leader %s", leader.endpoint);
           await instanceManager.kill(leader);
-          let old = leader;
+          const old = leader;
 
           uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
           leader = await instanceManager.asyncReplicationLeaderInstance();
@@ -130,7 +134,7 @@ describe("Leader-Follower failover", async function() {
           await doServerChecks(n - 1, leader);
 
           await instanceManager.restart(old);
-          console.log("killed instance restarted");
+          debugLog("killed instance restarted");
         }
       });
     });
@@ -151,7 +155,7 @@ describe("Leader-Follower failover", async function() {
             uuid
           );
 
-          console.log("killing leader %s", leader.endpoint);
+          debugLog("killing leader %s", leader.endpoint);
           await instanceManager.kill(leader);
 
           uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
@@ -166,7 +170,7 @@ describe("Leader-Follower failover", async function() {
   // Actual data synchronization
   describe("with data transfer", async function() {
     async function generateData(db, num) {
-      let coll = await db.collection("testcollection");
+      const coll = await db.collection("testcollection");
       await coll.create();
       return Promise.all(
         Array.apply(0, Array(num))
@@ -176,12 +180,12 @@ describe("Leader-Follower failover", async function() {
     }
 
     async function checkData(db, num) {
-      let cursor = await db.query(`FOR x IN testcollection
+      const cursor = await db.query(`FOR x IN testcollection
                                     SORT x.test ASC RETURN x`);
       expect(cursor.hasNext()).to.equal(true);
       let i = 0;
       while (cursor.hasNext()) {
-        let doc = await cursor.next();
+        const doc = await cursor.next();
         expect(doc.test).to.equal(i++);
       }
       expect(i).to.equal(num);
@@ -205,7 +209,7 @@ describe("Leader-Follower failover", async function() {
           await generateData(db, numDocs);
 
           for (; f > 0; f--) {
-            console.log("Waiting for tick synchronization...");
+            debugLog("Waiting for tick synchronization...");
             const inSync = await instanceManager.asyncReplicationTicksInSync(
               120.0
             );
@@ -219,9 +223,9 @@ describe("Leader-Follower failover", async function() {
               uuid
             );
 
-            console.log("killing leader %s", leader.endpoint);
+            debugLog("killing leader %s", leader.endpoint);
             await instanceManager.kill(leader);
-            let old = leader;
+            const old = leader;
 
             uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
             leader = await instanceManager.asyncReplicationLeaderInstance();
@@ -233,7 +237,7 @@ describe("Leader-Follower failover", async function() {
             await checkData(db, numDocs);
 
             await instanceManager.restart(old);
-            console.log("killed instance restarted");
+            debugLog("killed instance restarted");
           }
         });
       });
@@ -257,7 +261,7 @@ describe("Leader-Follower failover", async function() {
           await generateData(db, numDocs);
 
           for (; f > 0; f--) {
-            console.log("Waiting for tick synchronization...");
+            debugLog("Waiting for tick synchronization...");
             const inSync = await instanceManager.asyncReplicationTicksInSync(
               120.0
             );
@@ -271,7 +275,7 @@ describe("Leader-Follower failover", async function() {
               uuid
             );
 
-            console.log("killing leader %s", leader.endpoint);
+            debugLog("killing leader %s", leader.endpoint);
             await instanceManager.kill(leader);
 
             uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);

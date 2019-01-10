@@ -3,8 +3,9 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
-const rp = require("request-promise");
+const rp = require("request-promise-native");
 const _ = require("lodash");
+const {debugLog} = require('../../utils');
 
 describe("Move shards", function() {
   let instanceManager = InstanceManager.create();
@@ -34,6 +35,11 @@ describe("Move shards", function() {
       })
       .then(_servers => {
         servers = _servers;
+      })
+      .catch(e => {
+        // handle a failed before hook like a failed test
+        aTestFailed = true;
+        throw e;
       });
   });
   afterEach(function() {
@@ -48,8 +54,6 @@ describe("Move shards", function() {
   });
 
   it("should allow moving shards while writing", function() {
-    let stopMoving = false;
-
     let moveShards = function() {
       if (moveShards.stop) {
         return Promise.resolve();
@@ -97,10 +101,10 @@ describe("Move shards", function() {
             let current = result[1];
 
             return (
-              current.length == numServers &&
-              current.length == planned.length &&
+              current.length === numServers &&
+              current.length === planned.length &&
               current[0] === newLeader &&
-              current.every((server, index) => planned[index] == server)
+              current.every((server, index) => planned[index] === server)
             );
           })
           .then(finished => {
@@ -125,7 +129,7 @@ describe("Move shards", function() {
           let shardKey = Object.keys(shards)[0];
           let is = [shards[shardKey].leader].concat(shards[shardKey].followers);
           let freeServer = servers.filter(
-            server => is.indexOf(server.name) == -1
+            server => is.indexOf(server.name) === -1
           )[0];
 
           if (freeServer === undefined) {
@@ -143,7 +147,7 @@ describe("Move shards", function() {
             database: "_system",
             shard: shardKey,
             fromServer: servers.filter(
-              server => server.name == shards[shardKey].leader
+              server => server.name === shards[shardKey].leader
             )[0].id,
             toServer: freeServer.id
           };
@@ -178,25 +182,27 @@ describe("Move shards", function() {
 
     return insertDocuments()
       .then(() => {
-        console.log("Done inserting 10000 docs.");
+        debugLog("Done inserting 10000 docs.");
         moveShards.stop = true;
         return movePromise;
       })
       .then(() => {
-        console.log("movePromise resolved");
+        debugLog("movePromise resolved");
         return db.collection("testcollection").count();
       })
-      .then(count => {
-        return db.collection("testcollection").all();
+      .then(collectionCount => {
+        return Promise.all([Promise.resolve(collectionCount.count), db.collection("testcollection").all()]);
       })
-      .then(cursor => {
-        return cursor.all();
+      .then(([collectionCount, cursor]) => {
+        const all = cursor.all();
+        return Promise.all([Promise.resolve(collectionCount), all]);
       })
-      .then(all => {
+      .then(([collectionCount, all]) => {
         all = new Set(all.map(doc => doc.hallooo));
 
         let errorMsg = "";
-        if (all.size !== 10000) {
+        if (all.size !== 10000 || collectionCount !== 10000) {
+          errorMsg += `total count is ${all.size}, collection count is ${collectionCount}\n`;
           for (let i = 0; i < 10000; ++i) {
             if (!all.has(i)) {
               errorMsg += `Document ${i} missing!\n`;

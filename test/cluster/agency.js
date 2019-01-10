@@ -2,32 +2,36 @@
 "use strict";
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
+const {sleep, debugLog} = require('../../utils');
 
 const expect = require("chai").expect;
-const rp = require("request-promise");
+const rp = require("request-promise-native");
+const _ = require('lodash');
 
-let agencyRequest = function(options) {
-  options.followRedirects = options.followRedirects || false;
-  return rp(options)
-    .then(response => {
-      return response;
-    })
-    .catch(err => {
-      if (err.statusCode === 307) {
-        options.url = err.response.headers["location"];
-        return agencyRequest(options);
-      } else if (err.statusCode === 503 && err.message === "No leader") {
-        options.retries = (options.retries || 0) + 1;
-        if (options.retries < 5) {
-          return agencyRequest(options);
-        }
-        return Promise.reject(new Error("no leader after 5 retries"));
+const agencyRequest = async function(options) {
+  options.followAllRedirects = true;
+
+  for (let tries = 0; tries < 5; tries++) {
+    try {
+      return await rp(options);
+    } catch (err) {
+      // TODO (tobias): I've seen a 503 with the message
+      // "leadership challenge is ongoing".
+      // Maybe this has to be ignored here as well.
+      if (err.statusCode === 503 && err.message === "No leader") {
+        // This may happen, just retry
       }
-      return Promise.reject(err);
-    });
+      else {
+        // Abort when encountering other errors
+        throw err;
+      }
+    }
+  }
+
+  throw new Error("no leader after 5 retries");
 };
 
-let writeData = function(leader, data) {
+const writeData = function(leader, data) {
   return agencyRequest({
     method: "POST",
     url: endpointToUrl(leader.endpoint) + "/_api/agency/write",
@@ -37,192 +41,146 @@ let writeData = function(leader, data) {
   });
 };
 
-let waitForReintegration = function(endpoint) {
-  // mop: when reading works again we are reintegrated :)
-  return rp({
-    method: "POST",
-    url: endpointToUrl(endpoint) + "/_api/agency/read",
-    json: true,
-    body: [["/"]],
-    followRedirects: false
-  }).catch(err => {
-    if (err.statusCode == 307) {
-      return Promise.resolve();
-    } else {
-      return waitForReintegration(endpoint);
+const waitForReintegration = async (endpoint) => {
+  // TODO maybe reduce timeout
+  const timeout = 120e3; // 120.000 ms
+  let readSucceeded = false;
+
+  const startTime = Date.now();
+  while(!readSucceeded) {
+    if (startTime + timeout < Date.now()) {
+      throw new Error('Timeout when waiting for reintegration of '
+        + endpoint);
     }
-  });
+
+    try {
+      await rp({
+        method: "POST",
+        url: endpointToUrl(endpoint) + "/_api/agency/read",
+        json: true,
+        body: [["/"]],
+        followRedirects: false
+      });
+      readSucceeded = true;
+    } catch(err) {
+      if (err.statusCode === 307) {
+        readSucceeded = true;
+      } else {
+        await sleep(100); // 100 ms
+      }
+    }
+  }
 };
 
-let waitForLeaderChange = function(oldLeaderEndpoint, followerEndpoint) {
-  let tries = 0;
-  let maxTries = 200;
-  let waitInterval = 50;
+const waitForLeaderChange = async function(oldLeaderEndpoint, followerEndpoint) {
+  const isNonEmptyString = x => _.isString(x) && x !== '';
 
-  let waitForLeaderChangeInner = function() {
-    if (tries++ > maxTries) {
-      return Promise.reject(
-        "Didn't find an updated leader after " + tries + " tries"
-      );
-    }
-    return rp({
+  for (
+    const start = Date.now();
+    Date.now() - start < 30e3;
+    await sleep(50)
+  ) {
+    const res = await rp({
       url: endpointToUrl(followerEndpoint) + "/_api/agency/config",
       json: true
-    }).then(res => {
-      let currentLeaderEndpoint = res.configuration.pool[res.leaderId];
-      if (currentLeaderEndpoint == oldLeaderEndpoint) {
-        return new Promise((resolve, reject) => {
-          setTimeout(resolve, waitInterval);
-        }).then(() => {
-          return waitForLeaderChangeInner();
-        });
-      } else {
-        return Promise.resolve();
-      }
     });
-  };
-  return waitForLeaderChangeInner();
-};
 
-let waitForLeader = function(agents) {
-  return rp({
-    url: endpointToUrl(agents[0].endpoint) + "/_api/agency/config",
-    json: true
-  })
-    .then(result => {
-      if (result.leaderId === "") {
-        return Promise.reject(new Error("no leader"));
+    if (isNonEmptyString(res.leaderId)) {
+      const currentLeaderEndpoint = res.configuration.pool[res.leaderId];
+      if (currentLeaderEndpoint !== oldLeaderEndpoint) {
+        debugLog(`currentLeaderEndpoint = ${currentLeaderEndpoint}, oldLeaderEndpoint = ${oldLeaderEndpoint}`);
+        return;
       }
-      return result.leaderId;
-    })
-    .catch(err => {
-      if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-        console.log(
-          new Date().toISOString() + " the agents throw an error: " + err
-        );
-      }
-      return new Promise((resolve, reject) => {
-        setTimeout(resolve, 100);
-      }).then(() => {
-        return waitForLeader(agents);
-      });
-    });
-};
-
-let getLeaderInstance = function(agents) {
-  if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-    console.log(new Date().toISOString() + " getting leader instance");
+    }
   }
-  return waitForLeader(agents).then(leaderId => {
-    return agents.reduce((leaderInstance, agent) => {
-      if (leaderInstance) {
-        return leaderInstance;
-      }
 
-      return agencyRequest({
-        url: agent.endpoint + "/_api/agency/config",
+  throw new Error(`Didn't find an updated leader after 30s`);
+};
+
+const waitForLeader = async function(agents) {
+  const isNonEmptyString = x => _.isString(x) && x !== '';
+
+  for (
+    const start = Date.now();
+    Date.now() - start < 30e3;
+    await sleep(100)
+  ) {
+    try {
+      const result = await rp({
+        url: endpointToUrl(agents[0].endpoint) + "/_api/agency/config",
         json: true
-      }).then(result => {
-        if (result.configuration.id === leaderId) {
-          return agent;
-        }
       });
-    });
+      if (isNonEmptyString(result.leaderId)) {
+        return result.leaderId;
+      }
+    } catch(err) {
+    }
+  }
+
+  throw new Error("Timeout while waiting for leader.");
+};
+
+const getLeaderInstance = async function(agents) {
+  debugLog("getting leader instance");
+  const leaderId = await waitForLeader(agents);
+  const getAgencyConfig = agent => agencyRequest({
+    url: endpointToUrl(agent.endpoint) + "/_api/agency/config",
+    json: true
   });
+
+  for (const agent of agents) {
+    const result = await getAgencyConfig(agent);
+    if (result.configuration.id === leaderId) {
+      return agent;
+    }
+  }
+
+  throw new Error("Leader not found.");
 };
 
 describe("Agency", function() {
-  let instanceManager = InstanceManager.create();
+  const instanceManager = InstanceManager.create();
   let leader;
   let followers;
 
   describe("Agency startup", function() {
-    let checkDataLoss = function(agentCount) {
-      return instanceManager
-        .startAgency({ agencySize: agentCount, agencyWaitForSync: true })
-        .then(agents => {
-          if (process.env.LOG_IMMEDIATE && process.env.LOG_IMMEDIATE == "1") {
-            console.log(
-              new Date().toISOString() + " successful started agents"
-            );
-          }
-          let data = [[{ hans: "wurst" }]];
-          return getLeaderInstance(agents)
-            .then(leaderInstance => {
-              if (
-                process.env.LOG_IMMEDIATE &&
-                process.env.LOG_IMMEDIATE == "1"
-              ) {
-                console.log(new Date().toISOString() + "we got a leader");
-              }
-              return writeData(leaderInstance, data).then(() => {
-                return leaderInstance;
-              });
-            })
-            .then(leaderInstance => {
-              return agencyRequest({
-                method: "POST",
-                url:
-                  endpointToUrl(leaderInstance.endpoint) + "/_api/agency/read",
-                json: true,
-                body: [["/"]]
-              });
-            })
-            .then(result => {
-              expect(result).to.be.instanceof(Array);
-              expect(result).to.eql(data[0]);
-            })
-            .then(() => {
-              if (
-                process.env.LOG_IMMEDIATE &&
-                process.env.LOG_IMMEDIATE == "1"
-              ) {
-                console.log(new Date().toISOString() + " shutdown agents");
-              }
-              return Promise.all(
-                agents.map(agent => instanceManager.shutdown(agent))
-              );
-            })
-            .then(() => {
-              if (
-                process.env.LOG_IMMEDIATE &&
-                process.env.LOG_IMMEDIATE == "1"
-              ) {
-                console.log(new Date().toISOString() + " reboot agents");
-              }
-              return Promise.all(
-                agents.map(agent => instanceManager.restart(agent))
-              );
-            })
-            .then(() => {
-              if (
-                process.env.LOG_IMMEDIATE &&
-                process.env.LOG_IMMEDIATE == "1"
-              ) {
-                console.log(new Date().toISOString() + " reboot done");
-              }
-              return getLeaderInstance(agents);
-            })
-            .then(leaderInstance => {
-              return agencyRequest({
-                method: "POST",
-                url:
-                  endpointToUrl(leaderInstance.endpoint) + "/_api/agency/read",
-                json: true,
-                body: [["/"]]
-              });
-            })
-            .then(result => {
-              if (
-                process.env.LOG_IMMEDIATE &&
-                process.env.LOG_IMMEDIATE == "1"
-              ) {
-                console.log(new Date().toISOString() + " agency did respond");
-              }
-              expect(result).to.be.instanceof(Array);
-              expect(result).to.eql(data[0]);
-            });
-        });
+    const checkDataLoss = async function(agentCount) {
+      const agents = await instanceManager
+        .startAgency({ agencySize: agentCount, agencyWaitForSync: true });
+      debugLog("successfully started agents");
+      const data = [[{ hans: "wurst" }]];
+      let leaderInstance = await getLeaderInstance(agents);
+      debugLog("we got a leader");
+      await writeData(leaderInstance, data);
+      let result = await agencyRequest({
+        method: "POST",
+        url:
+          endpointToUrl(leaderInstance.endpoint) + "/_api/agency/read",
+        json: true,
+        body: [["/hans"]]
+      });
+      expect(result).to.be.instanceof(Array);
+      expect(result).to.eql(data[0]);
+      debugLog("shutdown agents");
+      await Promise.all(
+        agents.map(agent => instanceManager.shutdown(agent))
+      );
+      debugLog("reboot agents");
+      await Promise.all(
+        agents.map(agent => instanceManager.restart(agent))
+      );
+      debugLog("reboot done");
+      leaderInstance = await getLeaderInstance(agents);
+      result = await agencyRequest({
+        method: "POST",
+        url:
+          endpointToUrl(leaderInstance.endpoint) + "/_api/agency/read",
+        json: true,
+        body: [["/hans"]]
+      });
+      debugLog("agency did respond");
+      expect(result).to.be.instanceof(Array);
+      expect(result).to.eql(data[0]);
     };
 
     it("should not lose data upon restart when started in resilient mode", function() {
@@ -233,299 +191,259 @@ describe("Agency", function() {
       return checkDataLoss(1);
     });
 
-    afterEach(function() {
+    afterEach(async function() {
       const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
       const testFailed = currentTest.state === "failed";
       const retainDir = testFailed;
-      return instanceManager.cleanup(retainDir).then(log => {
-        if (testFailed) {
-          this.currentTest.err.message =
-            log + "\n\n" + this.currentTest.err.message;
-        }
-      });
+      const log = await instanceManager.cleanup(retainDir);
+      if (testFailed) {
+        this.currentTest.err.message =
+          log + "\n\n" + this.currentTest.err.message;
+      }
     });
   });
 
   describe("Agency checks", function() {
-    beforeEach(function() {
+    beforeEach(async function() {
       // mop: without wait for sync we cannot trust the agency when it said it wrote everything
       // and we are doing tests to verify this behaviour here
-      return instanceManager
-        .startAgency({ agencySize: 3, agencyWaitForSync: true })
-        .then(agents => {
-          return getLeaderInstance(agents).then(leaderInstance => {
-            leader = leaderInstance;
-            followers = instanceManager
-              .agents()
-              .filter(agent => agent !== leader);
-          });
-        });
+      const agents = await instanceManager
+        .startAgency({ agencySize: 3, agencyWaitForSync: true });
+      leader = await getLeaderInstance(agents);
+      followers = instanceManager
+        .agents()
+        .filter(agent => agent !== leader);
     });
 
-    afterEach(function() {
+    afterEach(async function() {
       const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
       const testFailed = currentTest.state === "failed";
       const retainDir = testFailed;
-      return instanceManager.cleanup(retainDir).then(log => {
-        if (testFailed) {
-          this.currentTest.err.message =
-            log + "\n\n" + this.currentTest.err.message;
-        }
+      const log = await instanceManager.cleanup(retainDir);
+      if (testFailed) {
+        this.currentTest.err.message =
+          log + "\n\n" + this.currentTest.err.message;
+      }
+    });
+
+    it("should failover when stopping the leader", async function() {
+      const data = [[{ hans: "wurst" }]];
+      await writeData(leader, data);
+      await instanceManager.shutdown(leader);
+      await waitForLeaderChange(leader.endpoint, followers[0].endpoint);
+      const result = await agencyRequest({
+        method: "POST",
+        url: endpointToUrl(followers[0].endpoint) + "/_api/agency/read",
+        json: true,
+        body: [["/hans"]]
       });
+      expect(result).to.be.instanceof(Array);
+      expect(result).to.eql(data[0]);
     });
 
-    it("should failover when stopping the leader", function() {
-      let data = [[{ hans: "wurst" }]];
-      return writeData(leader, data)
-        .then(() => {
-          return instanceManager.shutdown(leader);
-        })
-        .then(() => {
-          return waitForLeaderChange(leader.endpoint, followers[0].endpoint);
-        })
-        .then(res => {
-          return agencyRequest({
-            method: "POST",
-            url: endpointToUrl(followers[0].endpoint) + "/_api/agency/read",
-            json: true,
-            body: [["/"]]
-          });
-        })
-        .then(result => {
-          expect(result).to.be.instanceof(Array);
-          expect(result).to.eql(data[0]);
-        });
-    });
-
-    it("should not think it is the leader after a restart", function() {
-      let data = [[{ hans: "wurst" }]];
-      return writeData(leader, data)
-        .then(() => {
-          return instanceManager.shutdown(leader);
-        })
-        .then(() => {
-          return instanceManager.restart(leader);
-        })
-        .then(() => {
-          let upButNotLeader = function() {
-            return rp({
+    it("should not think it is the leader after a restart", async function() {
+      const data = [[{ hans: "wurst" }]];
+      await writeData(leader, data);
+      await instanceManager.shutdown(leader);
+      await waitForLeaderChange(leader.endpoint, followers[0].endpoint);
+      await instanceManager.restart(leader);
+      const upButNotLeader = async function() {
+        let leaderUnavailable = true;
+        let lastError = null;
+        while(leaderUnavailable) {
+          try {
+            await rp({
               method: "POST",
               url: endpointToUrl(leader.endpoint) + "/_api/agency/read",
               json: true,
               body: [["/"]],
               followRedirects: false
-            }).then(
-              () => {
-                return Promise.all([
-                  rp({
-                    url: endpointToUrl(leader.endpoint) + "/_api/agency/config"
-                  }),
-                  rp({
-                    url:
-                      endpointToUrl(followers[0].endpoint) +
-                      "/_api/agency/config"
-                  })
-                ]).then(results => {
-                  throw new Error(
-                    "It should not report success! It should block all incoming rest requests until it redetermined who the leader is. Configresults: " +
-                      JSON.stringify({
-                        leader: results[0],
-                        follower: results[1]
-                      })
-                  );
-                });
-              },
-              err => {
-                if (err.statusCode == 503) {
-                  // retry immediately...
-                  // we want to find errors and not grant 1s grace time
-                  return upButNotLeader();
-                }
-                expect(err.statusCode).to.equal(307);
-              }
-            );
-          };
+            });
+            lastError = null;
+          } catch(err) {
+            // retry immediately...
+            // we want to find errors and not grant 1s grace time
+            leaderUnavailable = err.statusCode === 503;
+            lastError = err;
+          }
+        }
 
-          return upButNotLeader();
-        });
-    });
-    it("should reintegrate a crashed follower", function() {
-      let data = [[{ koeln: "sued" }]];
-      return writeData(leader, data)
-        .then(() => {
-          return instanceManager.kill(followers[0]);
-        })
-        .then(() => {
-          return instanceManager.restart(followers[0]);
-        })
-        .then(() => {
-          return waitForReintegration(followers[0].endpoint);
-        })
-        .then(() => {
-          return agencyRequest({
-            method: "POST",
-            url: endpointToUrl(followers[0].endpoint) + "/_api/agency/read",
-            json: true,
-            body: [["/"]]
-          });
-        })
-        .then(result => {
-          expect(result).to.be.instanceof(Array);
-          expect(result).to.eql(data[0]);
-        });
-    });
-    it("should have the correct results after a funny fail rotation", function() {
-      let retryUntilUp = function(fn) {
-        let retries = 0;
-        let retryUntilUpInner = function(fn) {
-          let waitTime = 50;
-          let maxRetries = 500;
-          return fn().then(
-            result => {
-              return result;
-            },
-            err => {
-              if (retries++ > maxRetries) {
-                return Promise.reject(
-                  new Error(
-                    "Couldn't find leader after " + retries + " retries"
-                  )
-                );
-              } else if (err.code == "ECONNRESET" || err.statusCode == 503) {
-                return new Promise((resolve, reject) => {
-                  setTimeout(function() {
-                    retryUntilUpInner(fn).then(resolve, reject);
-                  }, waitTime);
-                });
-              } else {
-                return Promise.reject(err);
-              }
-            }
-          );
-        };
-        return retryUntilUpInner(fn);
-      };
-      let promise = Promise.resolve();
-      for (let i = 0; i < instanceManager.instances.length * 2; i++) {
-        promise = (function(promise, i) {
-          return promise.then(() => {
-            let data = [[{ subba: { op: "increment" } }, {}, "funny" + i]];
-            let data2 = [[{ dummy: 1 }]];
-            let instance =
-              instanceManager.instances[i % instanceManager.instances.length];
-
-            return retryUntilUp(function() {
-              return writeData(instance, data2);
+        if (lastError === null) {
+          throw new Error(
+            "It should not report success! It should block all incoming rest requests until it redetermined who the leader is. Configresults: " +
+            JSON.stringify({
+              leader: results[0],
+              follower: results[1]
             })
-              .then(() => {
-                return instanceManager.rpAgency({
-                  method: "POST",
-                  url: endpointToUrl(instance.endpoint) + "/_api/agency/write",
-                  json: true,
-                  body: data
-                });
-              })
-              .then(() => {
-                return instanceManager.shutdown(instance);
-              })
-              .then(() => {
-                return instanceManager.restart(instance);
-              });
+          );
+        }
+
+        expect(lastError.statusCode).to.equal(307);
+      };
+
+      await upButNotLeader();
+    });
+
+    it("should reintegrate a crashed follower", async function() {
+      const data = [[{ koeln: "sued" }]];
+      await writeData(leader, data);
+      await instanceManager.kill(followers[0]);
+      await instanceManager.restart(followers[0]);
+      await waitForReintegration(followers[0].endpoint);
+      const result = await agencyRequest({
+        method: "POST",
+        url: endpointToUrl(followers[0].endpoint) + "/_api/agency/read",
+        json: true,
+        body: [["/koeln"]]
+      });
+      expect(result).to.be.instanceof(Array);
+      expect(result).to.eql(data[0]);
+    });
+
+    it("should have the correct results after a funny fail rotation", async function() {
+      const retryUntilUp = async function(callback) {
+        for (
+          const start = Date.now();
+          Date.now() - start < 30e3;
+          await sleep(50)
+        ) {
+          try {
+            return await callback();
+          } catch(err) {
+            if (err.code === "ECONNRESET" || err.statusCode === 503) {
+              // This is fine, retry
+            } else {
+              throw err;
+            }
+          }
+        }
+
+        throw new Error("Couldn't find leader after 30s");
+      };
+
+      for (let i = 0; i < instanceManager.instances.length * 2; i++) {
+          const data = [[{ subba: { op: "increment" } }, {}, "funny" + i]];
+          const data2 = [[{ dummy: 1 }]];
+          const instance =
+            instanceManager.instances[i % instanceManager.instances.length];
+
+          await retryUntilUp(() => writeData(instance, data2));
+          await InstanceManager.rpAgency({
+            method: "POST",
+            url: endpointToUrl(instance.endpoint) + "/_api/agency/write",
+            json: true,
+            body: data
           });
-        })(promise, i);
+          await instanceManager.shutdown(instance);
+          await instanceManager.restart(instance);
       }
 
-      return promise
-        .then(() => {
-          return retryUntilUp(function() {
-            return agencyRequest({
-              method: "POST",
-              url: endpointToUrl(leader.endpoint) + "/_api/agency/read",
-              json: true,
-              body: [["/"]]
-            });
-          });
-        })
-        .then(result => {
-          expect(result).to.be.instanceof(Array);
-          expect(result[0]).to.eql({
-            subba: instanceManager.instances.length * 2 * 1,
-            dummy: 1
-          });
-        });
+      const result = await retryUntilUp(() => agencyRequest({
+        method: "POST",
+        url: endpointToUrl(leader.endpoint) + "/_api/agency/read",
+        json: true,
+        body: [["/subba", "/dummy"]]
+      }));
+      expect(result).to.be.instanceof(Array);
+      expect(result[0]).to.eql({
+        subba: instanceManager.instances.length * 2 * 1,
+        dummy: 1
+      });
     });
-    it("should reintegrate a failed follower starting with a new endpoint", function() {
-      return instanceManager
-        .shutdown(followers[0])
-        .then(() => {
-          return instanceManager.assignNewEndpoint(followers[0]);
-        })
-        .then(() => {
-          return instanceManager.restart(followers[0]);
-        })
-        .then(() => {
-          return waitForReintegration(followers[0].endpoint)
-            .then(() => {
-              return rp({
-                url:
-                  endpointToUrl(followers[0].endpoint) + "/_api/agency/config",
-                json: true
-              });
-            })
-            .then(result => {
-              expect(result.leaderId).to.not.be.empty;
-              expect(
-                result.configuration.pool[result.configuration.id]
-              ).to.equal(followers[0].endpoint);
-              return result.configuration.id;
-            });
-        })
-        .then(followerId => {
-          return rp({
-            url: endpointToUrl(leader.endpoint) + "/_api/agency/config",
-            json: true
-          }).then(result => {
-            expect(result.configuration.pool[followerId]).to.equal(
-              followers[0].endpoint
-            );
-          });
-        });
+
+    it("should reintegrate a failed follower starting with a new endpoint", async function() {
+      await instanceManager.shutdown(followers[0]);
+      await instanceManager.assignNewEndpoint(followers[0]);
+      await instanceManager.restart(followers[0]);
+      await waitForReintegration(followers[0].endpoint);
+      let result = await rp({
+        url:
+          endpointToUrl(followers[0].endpoint) + "/_api/agency/config",
+        json: true
+      });
+      expect(result.leaderId).to.not.be.empty;
+      expect(
+        result.configuration.pool[result.configuration.id]
+      ).to.equal(followers[0].endpoint);
+      const followerId = result.configuration.id;
+      result = await rp({
+        url: endpointToUrl(leader.endpoint) + "/_api/agency/config",
+        json: true
+      });
+      expect(
+        result.configuration.pool[followerId]
+      ).to.equal(followers[0].endpoint);
     });
-    it("should reintegrate a failed leader starting with a new endpoint", function() {
-      return instanceManager
-        .shutdown(leader)
-        .then(() => {
-          return instanceManager.assignNewEndpoint(leader);
-        })
-        .then(() => {
-          return instanceManager.restart(leader);
-        })
-        .then(() => {
-          return waitForReintegration(leader.endpoint)
-            .then(() => {
-              return rp({
-                url: endpointToUrl(leader.endpoint) + "/_api/agency/config",
-                json: true
-              });
-            })
-            .then(result => {
-              expect(result.leaderId).to.not.be.empty;
-              expect(
-                result.configuration.pool[result.configuration.id]
-              ).to.equal(leader.endpoint);
-              return result.configuration.id;
+
+    it("should reintegrate a failed leader starting with a new endpoint", async function() {
+      await instanceManager.shutdown(leader);
+      await instanceManager.assignNewEndpoint(leader);
+      await instanceManager.restart(leader);
+      await waitForReintegration(leader.endpoint);
+      const result = await rp({
+        url: endpointToUrl(leader.endpoint) + "/_api/agency/config",
+        json: true
+      });
+      expect(result.leaderId, `result is: ${JSON.stringify(result)}`).to.not.be.empty;
+      expect(
+        result.configuration.pool[result.configuration.id]
+      ).to.equal(leader.endpoint);
+      const oldLeaderId = result.configuration.id;
+      // It's possible that not all followers have the config replicated
+      // already. So we have to be lenient here.
+
+      const waitForNewEndpoint = async () => {
+        // TODO maybe reduce timeout
+        const timeout = 120e3; // 120.000 ms
+        const startTime = Date.now();
+
+        for (let curFollower = 0; curFollower < followers.length; ) {
+          const follower = followers[curFollower];
+          let result;
+          try {
+            result = await rp({
+              url: endpointToUrl(follower.endpoint) + "/_api/agency/config",
+              json: true
             });
-        })
-        .then(oldLeaderId => {
-          return rp({
-            url: endpointToUrl(followers[0].endpoint) + "/_api/agency/config",
-            json: true
-          }).then(result => {
-            expect(result.configuration.pool[oldLeaderId]).to.equal(
-              leader.endpoint
+          } catch (e) {
+            throw new Error(
+              'Error when requesting agency config from follower '
+                + JSON.stringify({
+                name: follower.name,
+                endpoint: follower.endpoint,
+                status: follower.status,
+                exitcode: follower.exitcode,
+              }) + '. ' +
+              'The error was ' + e + ', the response was ' + JSON.stringify(e.response)
             );
-          });
-        });
+          }
+
+          if (result.configuration.pool[oldLeaderId] === leader.endpoint) {
+            // success, immediately try the next
+            curFollower++;
+            continue;
+          }
+
+          if (startTime + timeout < Date.now()) {
+            throw new Error(
+              'Timeout while waiting for all agents to see the new endpoint. ' +
+              `Follower ${curFollower + 1} of ${followers.length} did not get the memo: `
+              + JSON.stringify({
+                name: follower.name,
+                endpoint: follower.endpoint,
+                status: follower.status,
+                exitcode: follower.exitcode,
+              }) + ' and the last response was ' + JSON.stringify(result) +
+              ` where we expected .configuration.pool[${oldLeaderId}] to equal ${leader.endpoint}.`
+            );
+          }
+
+          await sleep(100); // 100 ms
+        }
+
+      };
+
+      return waitForNewEndpoint();
     });
   });
 });

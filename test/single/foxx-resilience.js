@@ -21,7 +21,7 @@ const SERVICE_1_CHECKSUM = "69d01a5c";
 const SERVICE_1_RESULT = "service1";
 const MOUNT_1 = "/resiliencetestservice1";
 
-const sleep = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
+const {sleep, debugLog} = require('../../utils');
 
 describe("Foxx service", async function() {
   const instanceManager = InstanceManager.create();
@@ -39,22 +39,15 @@ describe("Foxx service", async function() {
     await instanceManager.startAgency({ agencySize: 1 });
   });
 
-  afterEach(function() {
+  afterEach(async function() {
     const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
     const retainDir = currentTest.state === "failed";
     instanceManager.moveServerLogs(currentTest);
-    return instanceManager.cleanup(retainDir).catch(() => {});
+    try {
+      await instanceManager.cleanup(retainDir);
+    } catch(e) {
+    }
   });
-
-  async function generateData(db, num) {
-    let coll = await db.collection("testcollection");
-    await coll.create();
-    return Promise.all(
-      Array.apply(0, Array(num))
-        .map((x, i) => i)
-        .map(i => coll.save({ test: i }))
-    );
-  }
 
   it("survives leader failover", async function() {
     await instanceManager.startSingleServer("single", 2);
@@ -63,7 +56,7 @@ describe("Foxx service", async function() {
     let uuid = await instanceManager.asyncReplicationLeaderSelected();
     let leader = await instanceManager.asyncReplicationLeaderInstance();
 
-    console.log("installing foxx app on %s", leader.endpoint);
+    debugLog("installing foxx app on %s", leader.endpoint);
     await installUtilService(leader.endpoint);
     await installAndCheckServices({
       endpointUrl: endpointToUrl(leader.endpoint),
@@ -77,7 +70,7 @@ describe("Foxx service", async function() {
       "followers did not get in sync before timeout"
     );
 
-    console.log("killing leader %s", leader.endpoint);
+    debugLog("killing leader %s", leader.endpoint);
     await instanceManager.kill(leader);
 
     uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
@@ -86,7 +79,7 @@ describe("Foxx service", async function() {
     // just to be sure the foxx queue got a chance to run
     await sleep(3000);
 
-    console.log("checking service on new leader %s", leader.endpoint);
+    debugLog("checking service on new leader %s", leader.endpoint);
     await checkAllServices({
       endpointUrl: endpointToUrl(leader.endpoint),
       serviceInfos: serviceInfos
@@ -100,7 +93,7 @@ describe("Foxx service", async function() {
     let uuid = await instanceManager.asyncReplicationLeaderSelected();
     let leader = await instanceManager.asyncReplicationLeaderInstance();
 
-    console.log("installing foxx app on %s", leader.endpoint);
+    debugLog("installing foxx app on %s", leader.endpoint);
     let leaderUrl = endpointToUrl(leader.endpoint);
     await installUtilService(leader.endpoint);
     await installAndCheckServices({
@@ -109,7 +102,7 @@ describe("Foxx service", async function() {
     });
 
     let db = arangojs({ url: leaderUrl, databaseName: "_system" });
-    let coll = await db.collection("testcollection");
+    const coll = await db.collection("testcollection");
     await coll.create();
     await Promise.all(
       Array.apply(0, Array(1000))
@@ -117,7 +110,6 @@ describe("Foxx service", async function() {
         .map(i => coll.save({ test: i }))
     );
     let cc = await coll.count();
-    console.log(cc);
     expect(cc.count).to.be.eq(1000);
 
     // wait for followers to get in sync
@@ -127,7 +119,7 @@ describe("Foxx service", async function() {
       "followers did not get in sync before timeout"
     );
 
-    console.log("killing leader %s", leader.endpoint);
+    debugLog("killing leader %s", leader.endpoint);
     await instanceManager.kill(leader);
 
     uuid = await instanceManager.asyncReplicationLeaderSelected(uuid);
@@ -137,7 +129,7 @@ describe("Foxx service", async function() {
     await sleep(3000);
 
     leaderUrl = endpointToUrl(leader.endpoint);
-    console.log("checking service on new leader %s", leader.endpoint);
+    debugLog("checking service on new leader %s", leader.endpoint);
     await checkAllServices({
       endpointUrl: endpointToUrl(leader.endpoint),
       serviceInfos: serviceInfos
@@ -220,7 +212,7 @@ async function configServices(endpointUrl, configs, urConfig) {
 
 async function checkServices(endpointUrl, services, check) {
   for (const [mount, expectedResult] of services) {
-    if (expectedResult != undefined)
+    if (expectedResult !== undefined)
       await check(endpointUrl, mount, expectedResult);
   }
 }
@@ -262,8 +254,7 @@ async function checkBundleExists(endpointUrl, mount, expectedResult) {
         return;
       }
       throw new Error(
-        "Exception during bundle check: %s",
-        e.errorMessage || e.errorNum
+        `Exception during bundle check: ${e.errorMessage || e.errorNum || e}`
       );
     }
     expect(response.statusCode).to.equal(200);

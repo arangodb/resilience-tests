@@ -5,10 +5,10 @@ const readFileSync = require("fs").readFileSync;
 const InstanceManager = require("../../InstanceManager.js");
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
+const {sleep, debugLog} = require('../../utils');
 const FailoverError = InstanceManager.FailoverError;
 // Wait 100s this is rather long and should retain on slow machines also
 const MAX_FAILOVER_TIMEOUT_MS = 1000000;
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const noop = () => {};
 const service1 = readFileSync(
@@ -19,13 +19,7 @@ const service2 = readFileSync(
 );
 const retryIntervalMS = 10000;
 
-const debugLog = (...args) => {
-  if (process.env.LOG_IMMEDIATE === "1") {
-    console.log(new Date().toISOString(), ' ', ...args);
-  }
-};
-
-describe("Foxx service", function() {
+describe("Foxx service (dbserver)", function() {
   const im = InstanceManager.create();
   const MOUNT = "/resiliencetestservice";
 
@@ -34,7 +28,7 @@ describe("Foxx service", function() {
     while (count * retryIntervalMS < MAX_FAILOVER_TIMEOUT_MS) {
       try {
         let newLeader = await im.findPrimaryDbServer(col);
-        if (newLeader != lastLeader) {
+        if (newLeader !== lastLeader) {
           // we got a new leader yay \o/
           return;
         }
@@ -42,7 +36,7 @@ describe("Foxx service", function() {
         if (e instanceof FailoverError) {
           // This is expected! just continue
           debugLog(`waitForLeaderFailover: caught expected FailoverError ${e}`);
-        } if (e instanceof Error && e.message.startsWith('Unknown endpoint ')) {
+        } else if (e instanceof Error && e.message.startsWith('Unknown endpoint ')) {
           // This is expected! just continue
           debugLog(`waitForLeaderFailover: caught expected Error ${e}`);
         } else {
@@ -85,13 +79,19 @@ describe("Foxx service", function() {
     await im.waitForSyncReplication();
   };
 
-  beforeEach(() => im.startCluster(1, 2, 2));
+  beforeEach(async () => {
+    await im.startCluster(1, 2, 2);
+    await im.waitForSyncReplication();
+  });
+
   afterEach(async () => {
     const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
     const retainDir = currentTest.state === "failed";
     try {
       await im.cleanup(retainDir);
-    } catch (_) {}
+    } catch (e) {
+      console.error(`Error during cleanup: ${e}`);
+    }
   });
 
   describe("when already installed", function() {
@@ -116,7 +116,9 @@ describe("Foxx service", function() {
     it("should survive primary dbServer being replaced", async function() {
       const primary = await im.findPrimaryDbServer("_apps");
       await im.destroy(primary);
-      await im.replace(primary);
+      // replace with new endpoint
+      await im.replace(primary, true);
+      await waitForLeaderFailover("_apps", primary);
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
       const response = await db.route(MOUNT).get();
@@ -125,7 +127,7 @@ describe("Foxx service", function() {
 
     it("should survive a single dbServer being added", async function() {
       const instance = await im.startDbServer("dbServer-new");
-      await im.waitForInstance(instance);
+      await InstanceManager.waitForInstance(instance);
       im.instances = [...im.instances, instance];
       const coord = im.coordinators()[0];
       const db = arangojs(im.getEndpointUrl(coord));
