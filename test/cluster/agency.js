@@ -116,6 +116,8 @@ const waitForLeader = async function(agents) {
     } catch(err) {
     }
   }
+
+  throw new Error("Timeout while waiting for leader.");
 };
 
 const getLeaderInstance = async function(agents) {
@@ -132,6 +134,8 @@ const getLeaderInstance = async function(agents) {
       return agent;
     }
   }
+
+  throw new Error("Leader not found.");
 };
 
 describe("Agency", function() {
@@ -153,7 +157,7 @@ describe("Agency", function() {
         url:
           endpointToUrl(leaderInstance.endpoint) + "/_api/agency/read",
         json: true,
-        body: [["/"]]
+        body: [["/hans"]]
       });
       expect(result).to.be.instanceof(Array);
       expect(result).to.eql(data[0]);
@@ -172,7 +176,7 @@ describe("Agency", function() {
         url:
           endpointToUrl(leaderInstance.endpoint) + "/_api/agency/read",
         json: true,
-        body: [["/"]]
+        body: [["/hans"]]
       });
       debugLog("agency did respond");
       expect(result).to.be.instanceof(Array);
@@ -241,10 +245,7 @@ describe("Agency", function() {
       const data = [[{ hans: "wurst" }]];
       await writeData(leader, data);
       await instanceManager.shutdown(leader);
-    // the default max RAFT timeout is 5s. after this, the agency should
-    // have started a new election.
-    // TODO maybe its better to wait until the agency has a new leader?
-      await sleep(5e3);
+      await waitForLeaderChange(leader.endpoint, followers[0].endpoint);
       await instanceManager.restart(leader);
       const upButNotLeader = async function() {
         let leaderUnavailable = true;
@@ -293,7 +294,7 @@ describe("Agency", function() {
         method: "POST",
         url: endpointToUrl(followers[0].endpoint) + "/_api/agency/read",
         json: true,
-        body: [["/"]]
+        body: [["/koeln"]]
       });
       expect(result).to.be.instanceof(Array);
       expect(result).to.eql(data[0]);
@@ -341,7 +342,7 @@ describe("Agency", function() {
         method: "POST",
         url: endpointToUrl(leader.endpoint) + "/_api/agency/read",
         json: true,
-        body: [["/"]]
+        body: [["/subba", "/dummy"]]
       }));
       expect(result).to.be.instanceof(Array);
       expect(result[0]).to.eql({
