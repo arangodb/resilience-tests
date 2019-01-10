@@ -110,7 +110,6 @@ describe("Foxx service", async function() {
         .map(i => coll.save({ test: i }))
     );
     let cc = await coll.count();
-    debugLog("cc=", cc);
     expect(cc.count).to.be.eq(1000);
 
     // wait for followers to get in sync
@@ -254,9 +253,8 @@ async function checkBundleExists(endpointUrl, mount, expectedResult) {
         expect(e.code).to.equal(404);
         return;
       }
-      debugLog("", e);
       throw new Error(
-        `Exception during bundle check: ${e.errorMessage || e.errorNum}`
+        `Exception during bundle check: ${e.errorMessage || e.errorNum || e}`
       );
     }
     expect(response.statusCode).to.equal(200);

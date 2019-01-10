@@ -15,6 +15,9 @@ const agencyRequest = async function(options) {
     try {
       return await rp(options);
     } catch (err) {
+      // TODO (tobias): I've seen a 503 with the message
+      // "leadership challenge is ongoing".
+      // Maybe this has to be ignored here as well.
       if (err.statusCode === 503 && err.message === "No leader") {
         // This may happen, just retry
       }
