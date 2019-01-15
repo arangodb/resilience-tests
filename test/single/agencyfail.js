@@ -3,7 +3,7 @@
 
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
-const {sleep, debugLog} = require('../../utils');
+const {sleep, debugLog, afterEachCleanup} = require('../../utils');
 
 const rp = require("request-promise-native");
 const arangojs = require("arangojs");
@@ -78,15 +78,7 @@ describe("Leader-Follower failover + agency outage", async function() {
     agents = await instanceManager.startAgency({ agencySize: 3 });
   });
 
-  afterEach(async function() {
-    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-    const retainDir = currentTest.state === "failed";
-    instanceManager.moveServerLogs(this.currentTest);
-    try {
-      await instanceManager.cleanup(retainDir);
-    } catch(e) {
-    }
-  });
+  afterEach(() => afterEachCleanup(this, instanceManager));
 
   // Actual data synchronization
   describe("with data transfer", async function() {

@@ -3,6 +3,7 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
+const dd = require('dedent');
 
 describe("ClusterResilience", function() {
   let instanceManager = InstanceManager.create();
@@ -37,13 +38,24 @@ describe("ClusterResilience", function() {
     if (currentTest.state === "failed") {
       aTestFailed = true;
     }
-    instanceManager.check();
     instanceManager.moveServerLogs(this.currentTest);
   });
 
-  after(function() {
+  after(async function() {
     const retainDir = aTestFailed;
-    return instanceManager.cleanup(retainDir);
+
+    const notes = dd`
+      Test:
+        ${that.title}
+      Suite:
+        ${that.parent.fullTitle()}
+    `;
+
+    try {
+      await instanceManager.cleanup(retainDir, true, notes);
+    } catch(e) {
+      console.warn(`Ignored cleanup error: ${e}`);
+    }
   });
 
   it("should report the same number of documents after a db server restart", function() {

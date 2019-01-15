@@ -3,7 +3,7 @@
 
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
-const {sleep, debugLog} = require('../../utils');
+const {sleep, debugLog, afterEachCleanup} = require('../../utils');
 
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
@@ -15,15 +15,7 @@ describe("Temporary stopping", async function() {
     await instanceManager.startAgency({ agencySize: 1 });
   });
 
-  afterEach(async function() {
-    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-    const retainDir = currentTest.state === "failed";
-    instanceManager.moveServerLogs(currentTest);
-    try {
-      await instanceManager.cleanup(retainDir);
-    } catch(e) {
-    }
-  });
+  afterEach(() => afterEachCleanup(this, instanceManager));
 
   async function generateData(db, num) {
     const coll = await db.collection("testcollection");

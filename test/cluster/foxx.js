@@ -5,9 +5,8 @@ const readFileSync = require("fs").readFileSync;
 const InstanceManager = require("../../InstanceManager.js");
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
-const {sleep, debugLog} = require('../../utils');
+const {afterEachCleanup} = require('../../utils');
 
-const noop = () => {};
 const service1 = readFileSync(
   join(__dirname, "..", "..", "fixtures", "service1.zip")
 );
@@ -22,15 +21,7 @@ describe("Foxx service (coordinator)", function() {
   beforeEach(async () => {
     await im.startCluster(1, 2, 2);
   });
-  afterEach(async () => {
-    try {
-      const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-      const retainDir = currentTest.state === "failed";
-      await im.cleanup(retainDir);
-    } catch (err) {
-      debugLog(`cleanup failed: ${err}`, err);
-    }
-  });
+  afterEach(() => afterEachCleanup(this, im));
 
   describe("when already installed", function() {
     beforeEach(async function() {

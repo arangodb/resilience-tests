@@ -3,7 +3,7 @@
 
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
-const {debugLog} = require('../../utils');
+const {debugLog, afterEachCleanup} = require('../../utils');
 
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
@@ -16,15 +16,7 @@ describe("Adding late followers", async function() {
     await instanceManager.startAgency({ agencySize: 1 });
   });
 
-  afterEach(async function() {
-    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-    const retainDir = currentTest.state === "failed";
-    instanceManager.moveServerLogs(currentTest);
-    try {
-      await instanceManager.cleanup(retainDir);
-    } catch(e) {
-    }
-  });
+  afterEach(() => afterEachCleanup(this, instanceManager));
 
   async function generateData(db, num) {
     const coll = await db.collection("testcollection");

@@ -3,7 +3,7 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const rp = require("request-promise-native");
-const {sleep} = require('../../utils');
+const {sleep, afterEachCleanup} = require('../../utils');
 
 describe("Remove servers", function() {
   const instanceManager = InstanceManager.create();
@@ -83,12 +83,7 @@ describe("Remove servers", function() {
     throw new Error("Server did not go failed in time!");
   };
 
-  afterEach(async function() {
-    instanceManager.moveServerLogs(this.currentTest);
-    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-    const retainDir = currentTest.state === "failed";
-    await instanceManager.cleanup(retainDir);
-  });
+  afterEach(() => afterEachCleanup(this, instanceManager));
 
   it("should mark a failed coordinator failed after a while", async function() {
     await instanceManager.startCluster(1, 2, 2);

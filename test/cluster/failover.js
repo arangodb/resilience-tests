@@ -3,7 +3,7 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
-const {sleep} = require('../../utils');
+const {sleep, afterEachCleanup} = require('../../utils');
 
 // Arango error code for "shutdown in progress"
 const ERROR_SHUTTING_DOWN = 30;
@@ -130,9 +130,5 @@ describe("Failover", function() {
     expect(savedDocs.length).to.be.at.most(10007);
   });
 
-  afterEach(async function() {
-    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-    const retainDir = currentTest.state === "failed";
-    await instanceManager.cleanup(retainDir);
-  });
+  afterEach(() => afterEachCleanup(this, instanceManager));
 });

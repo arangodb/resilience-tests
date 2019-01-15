@@ -21,7 +21,7 @@ const SERVICE_1_CHECKSUM = "69d01a5c";
 const SERVICE_1_RESULT = "service1";
 const MOUNT_1 = "/resiliencetestservice1";
 
-const {sleep, debugLog} = require('../../utils');
+const {sleep, debugLog, afterEachCleanup} = require('../../utils');
 
 describe("Foxx service", async function() {
   const instanceManager = InstanceManager.create();
@@ -39,15 +39,7 @@ describe("Foxx service", async function() {
     await instanceManager.startAgency({ agencySize: 1 });
   });
 
-  afterEach(async function() {
-    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-    const retainDir = currentTest.state === "failed";
-    instanceManager.moveServerLogs(currentTest);
-    try {
-      await instanceManager.cleanup(retainDir);
-    } catch(e) {
-    }
-  });
+  afterEach(() => afterEachCleanup(this, instanceManager));
 
   it("survives leader failover", async function() {
     await instanceManager.startSingleServer("single", 2);

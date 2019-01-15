@@ -5,7 +5,7 @@ const readFileSync = require("fs").readFileSync;
 const InstanceManager = require("../../InstanceManager.js");
 const arangojs = require("arangojs");
 const expect = require("chai").expect;
-const {sleep, debugLog} = require('../../utils');
+const {sleep, debugLog, afterEachCleanup} = require('../../utils');
 const FailoverError = InstanceManager.FailoverError;
 // Wait 100s this is rather long and should retain on slow machines also
 const MAX_FAILOVER_TIMEOUT_MS = 1000000;
@@ -84,15 +84,7 @@ describe("Foxx service (dbserver)", function() {
     await im.waitForSyncReplication();
   });
 
-  afterEach(async () => {
-    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-    const retainDir = currentTest.state === "failed";
-    try {
-      await im.cleanup(retainDir);
-    } catch (e) {
-      console.error(`Error during cleanup: ${e}`);
-    }
-  });
+  afterEach(() => afterEachCleanup(this, im));
 
   describe("when already installed", function() {
     beforeEach(async function() {

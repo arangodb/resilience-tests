@@ -6,8 +6,8 @@ const InstanceManager = require("../../InstanceManager");
 const arangojs = require("arangojs");
 const aql = arangojs.aql;
 const expect = require("chai").expect;
+const {afterEachCleanup} = require("../../utils");
 
-const noop = () => {};
 const service1 = readFileSync(
   join(__dirname, "..", "..", "fixtures", "service1.zip")
 );
@@ -33,15 +33,6 @@ const SERVICE_DEPENDENCIES = {
 const MOUNT_1 = "/resiliencetestservice1";
 const MOUNT_2 = "/resiliencetestservice2";
 const MOUNT_3 = "/resiliencetestservice3";
-
-// usable as afterEach hook
-async function afterEachCleanup(that, im) {
-  const currentTest = that.ctx ? that.ctx.currentTest : that.currentTest;
-
-  // .state is "passed" or "failed"
-  const retainDir = currentTest.state === "failed";
-  await im.cleanup(retainDir).catch(noop);
-}
 
 describe("Foxx service (resilience)", function() {
   describe(
