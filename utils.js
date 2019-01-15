@@ -24,6 +24,8 @@
 /// @author Tobias Gödderz
 ////////////////////////////////////////////////////////////////////////////////
 
+const dd = require('dedent');
+
 const sleep = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
 const debugLog = (...logLine) => {
@@ -39,5 +41,29 @@ const debugLog = (...logLine) => {
   }
 };
 
+// usable as afterEach hook
+async function afterEachCleanup(that, im) {
+  const currentTest = that.ctx ? that.ctx.currentTest : that.currentTest;
+
+  im.moveServerLogs(currentTest);
+
+  // .state is "passed" or "failed"
+  const testFailed = currentTest.state === "failed";
+  const notes = dd`
+    Test:
+      ${that.title}
+    Suite:
+      ${that.parent.fullTitle()}
+    \n
+  `;
+  const retainDir = testFailed;
+  try {
+    await im.cleanup(retainDir, true, notes);
+  } catch(e) {
+    console.warn(`Ignored cleanup error: ${e}`);
+  }
+}
+
 exports.sleep = sleep;
 exports.debugLog = debugLog;
+exports.afterEachCleanup = afterEachCleanup;

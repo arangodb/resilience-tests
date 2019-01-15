@@ -3,7 +3,7 @@
 
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
-const {debugLog} = require('../../utils');
+const {debugLog, afterEachCleanup} = require('../../utils');
 
 const rp = require("request-promise-native");
 const arangojs = require("arangojs");
@@ -37,15 +37,7 @@ describe("Leader-Follower failover", async function() {
     await instanceManager.startAgency({ agencySize: 1 });
   });
 
-  afterEach(async function() {
-    const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-    const retainDir = currentTest.state === "failed";
-    instanceManager.moveServerLogs(currentTest);
-    try {
-      await instanceManager.cleanup(retainDir);
-    } catch(e) {
-    }
-  });
+  afterEach(() => afterEachCleanup(this, instanceManager));
 
   // no actual data is transmitted, only heartbeat thread is tested
   describe("basic tick value synchronization", async function() {

@@ -6,6 +6,7 @@ const arangojs = require("arangojs");
 const rp = require("request-promise-native");
 const _ = require("lodash");
 const {debugLog} = require('../../utils');
+const dd = require('dedent');
 
 describe("Move shards", function() {
   let instanceManager = InstanceManager.create();
@@ -42,15 +43,30 @@ describe("Move shards", function() {
         throw e;
       });
   });
+
   afterEach(function() {
     const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
     if (currentTest.state === "failed") {
       aTestFailed = true;
     }
+    instanceManager.moveServerLogs(this.currentTest);
   });
-  after(function() {
+
+  after(async function() {
     const retainDir = aTestFailed;
-    return instanceManager.cleanup(retainDir);
+
+    const notes = dd`
+      Test:
+        ${that.title}
+      Suite:
+        ${that.parent.fullTitle()}
+    `;
+
+    try {
+      await instanceManager.cleanup(retainDir, true, notes);
+    } catch(e) {
+      console.warn(`Ignored cleanup error: ${e}`);
+    }
   });
 
   it("should allow moving shards while writing", function() {

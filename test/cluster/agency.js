@@ -2,7 +2,7 @@
 "use strict";
 const InstanceManager = require("../../InstanceManager.js");
 const endpointToUrl = InstanceManager.endpointToUrl;
-const {sleep, debugLog} = require('../../utils');
+const {sleep, debugLog, afterEachCleanup} = require('../../utils');
 
 const expect = require("chai").expect;
 const rp = require("request-promise-native");
@@ -191,16 +191,7 @@ describe("Agency", function() {
       return checkDataLoss(1);
     });
 
-    afterEach(async function() {
-      const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-      const testFailed = currentTest.state === "failed";
-      const retainDir = testFailed;
-      const log = await instanceManager.cleanup(retainDir);
-      if (testFailed) {
-        this.currentTest.err.message =
-          log + "\n\n" + this.currentTest.err.message;
-      }
-    });
+    afterEach(() => afterEachCleanup(this, instanceManager));
   });
 
   describe("Agency checks", function() {
@@ -215,16 +206,7 @@ describe("Agency", function() {
         .filter(agent => agent !== leader);
     });
 
-    afterEach(async function() {
-      const currentTest = this.ctx ? this.ctx.currentTest : this.currentTest;
-      const testFailed = currentTest.state === "failed";
-      const retainDir = testFailed;
-      const log = await instanceManager.cleanup(retainDir);
-      if (testFailed) {
-        this.currentTest.err.message =
-          log + "\n\n" + this.currentTest.err.message;
-      }
-    });
+    afterEach(() => afterEachCleanup(this, instanceManager));
 
     it("should failover when stopping the leader", async function() {
       const data = [[{ hans: "wurst" }]];
