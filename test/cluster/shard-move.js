@@ -55,10 +55,14 @@ describe("Move shards", function() {
   after(async function() {
     const retainDir = aTestFailed;
 
+    const test = this.test;
+
     const notes = dd`
+      Test:
+        ${test.title}
       Suite:
-        ${this.fullTitle()}
-    `;
+        ${test.parent.fullTitle()}
+    ` + "\n";
 
     try {
       await instanceManager.cleanup(retainDir, true, notes);

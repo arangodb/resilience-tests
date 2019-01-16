@@ -54,8 +54,8 @@ async function afterEachCleanup(that, im) {
       ${that.title}
     Suite:
       ${that.parent.fullTitle()}
-    \n
-  `;
+  ` + "\n";
+
   const retainDir = testFailed;
   try {
     await im.cleanup(retainDir, true, notes);
