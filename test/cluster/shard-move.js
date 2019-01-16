@@ -56,10 +56,8 @@ describe("Move shards", function() {
     const retainDir = aTestFailed;
 
     const notes = dd`
-      Test:
-        ${that.title}
       Suite:
-        ${that.parent.fullTitle()}
+        ${this.fullTitle()}
     `;
 
     try {

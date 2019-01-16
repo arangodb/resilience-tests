@@ -3,6 +3,7 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
+const {afterEachCleanup} = require('../../utils');
 
 describe("Setup", function() {
   let instanceManager = InstanceManager.create();
