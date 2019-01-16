@@ -32,53 +32,72 @@ Then reexecute like this (replace path of course):
 
 ## Options
 
-RESILIENCE_ARANGO_BASEPATH
+via environment variables
+
+### `RESILIENCE_ARANGO_BASEPATH`
 
     Path to your arangodb source directory containing a build directory with arango executables. Example: "../arangodb"
 
-RESILIENCE_DOCKER_IMAGE
+### `RESILIENCE_DOCKER_IMAGE`
 
     Docker image to test. Example: "arangdb/arangodb"
 
-LOG_IMMEDIATE
+### `LOG_IMMEDIATE`
 
-    Set to 1 for debug log output from the tests and the instance manager.
+    Set to `1` for debug log output from the tests and the instance manager.
 
-ARANGO_STORAGE_ENGINE
+### `ARANGO_STORAGE_ENGINE`
 
     One of rocksdb or mmfiles (default: mmfiles)
 
-MIN_PORT
+### `MIN_PORT`
 
     From where the tests should start searching for a free port. defaults to 4000
 
-MAX_PORT
+### `MAX_PORT`
 
     MAX_PORT. defaults to 65535
 
-PORT_OFFSET
+### `PORT_OFFSET`
 
     Port offset. For every request this will be added to the startPort to keep the ports somewhat predicatable. Default 50
     The first request would reveal for example 4000. The second instance would then be assigned port 4050, then 4100 and so forth.
 
-RESILIENCE_ARANGO_WRAPPER
+### `RESILIENCE_ARANGO_WRAPPER`
 
     Wrapper command for arangod, e.g. rr.
 
-LOG_REQUESTS
+### `LOG_AGENCY`,
+### `LOG_COMMUNICATION`,
+### `LOG_REPLICATION`,
+### `LOG_REQUESTS`
 
-    Set log level for requests, e.g. `debug` or `trace`.
-    Will be passed to arangod appended to `--log.level=requests=`.
+    Set log level for agency, communication, replication or requests,
+    values are e.g. `debug` or `trace`.
+    Will be passed to arangod appended to `--log.level=agency=`,
+    `--log.level=communication=` etc..
 
-LOG_COMMUNICATION
+### `ARANGO_INSTANCES_DIR`
 
-    Set log level for communication, e.g. `debug` or `trace`.
-    Will be passed to arangod appended to `--log.level=communication=`.
+    Directory where the instance manager creates its instances. Useful for
+    collecting artifacts after failed tests. May be relative to the current
+    working directory. Will be created if non existent, but not recursively.
+    If unset, the systems tmp directory will be used.
 
-LOG_AGENCY
+### `AGENCY_COMPACTION_STEP`
 
-    Set log level for the agency, e.g. `debug` or `trace`.
-    Will be passed to arangod appended to `--log.level=agency=`.
+    Will be passed via `--agency.compaction-step-size=` to arangod. Defaults
+    to 200.
+
+### `AGENCY_COMPACTION_KEEP`
+
+    Will be passed via `--agency.compaction-keep-size=` to arangod. Defaults
+    to 100.
+
+### `ARANGO_EXTRA_ARGS`
+
+    Extra arguments that will be passed to arangod. Will be split on spaces
+    and then passed as separate arguments.
 
 ## Mocha options
 
