@@ -5,7 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --inline-diffs -t 600000 --full-trace",
+    "test": "mocha --inline-diffs -t 600000 --full-trace --recursive",
     "test-jenkins": "TERM=xterm multi='spec=- xunit=report.xml' ./node_modules/mocha/bin/mocha -C --inline-diffs -t 600000 --full-trace --reporter mocha-multi --recursive",
     "test-jenkins-windows": "node .\\node_modules\\mocha\\bin\\mocha -C --inline-diffs -t 600000 --full-trace --reporter mocha-multi --recursive"
   },
