@@ -114,10 +114,10 @@ append-type@^1.0.1:
   resolved "https://registry.yarnpkg.com/append-type/-/append-type-1.0.1.tgz#e29a6eb22cec0c0b9b93063b3cf6b10d9e0c60f4"
   integrity sha512-ro+W6UHJuoA2NXqKHug9bmXDbPB3eCALjcJOsYjgI9cz9cjLFthvincBCWjk25VFzJmIUHd8saOWZZBuMycXrg==
 
-arangodb-instance-manager@^1.1.1:
-  version "1.1.1"
-  resolved "https://registry.yarnpkg.com/arangodb-instance-manager/-/arangodb-instance-manager-1.1.1.tgz#ad6ba081b8c8434106fa505ddc6d5eb4231ec76a"
-  integrity sha512-xe3q0Uom0qwrXlPB+eVFIVivio6G+ihohtxm0uywCu+rjt76+oWsLXvj2jggODU+FnSeQN5K1xSkX72mgSXRog==
+arangodb-instance-manager@^1.1.2:
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/arangodb-instance-manager/-/arangodb-instance-manager-1.1.2.tgz#849974de48380980f0a23554c0c1d38f83975ebb"
+  integrity sha512-XlbaTfZQL7eNDWifGF6Ck1vY9xT/8JeDlHZzW0lJ/e7a06q7wWf4DbweSpllKlUKITjieP5h7pg4JvbPOSwnaA==
   dependencies:
     "@types/request-promise-native" "^1.0.15"
     arangojs "^6.2.4"
