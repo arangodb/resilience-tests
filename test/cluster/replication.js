@@ -6,39 +6,41 @@ const arangojs = require("arangojs");
 const {sleep, afterEachCleanup} = require('../../utils');
 
 const replicationCollectionName = "replicationCollectionName";
+let replicationCollectionId = 0;
 
 describe("Replication", function() {
   const instanceManager = InstanceManager.create();
   let db;
 
-  const getLeaderOrFollower = async function(follower) {
+  const getInfoFromAgency = async function(path) {
+    // Path needs to be an array e.g. ["Plan", "Collections", "_system"]
     const data = await InstanceManager
-      .rpAgency({
-        method: "POST",
-        url:
-          instanceManager.getEndpointUrl(instanceManager.agents()[0]) +
-          "/_api/agency/read",
-        json: true,
-        body: [["/"]]
-      });
+    .rpAgency({
+      method: "POST",
+      url:
+        instanceManager.getEndpointUrl(instanceManager.agents()[0]) +
+        "/_api/agency/read",
+      json: true,
+      body: [[`/arango/${path.join("/")}`]]
+    });
+    // Same as data[0].arango.(path.join(".")) evaluated
+    return path.reduce((obj, attribute) => obj[attribute], data[0].arango);
+  }
 
-    const plan = data[0].arango.Plan;
-
-    const plannedCollection = Object.values(plan.Collections["_system"])
-      .find(col => col.name === replicationCollectionName);
-    const shardName = Object.keys(plannedCollection.shards)[0];
+  const getLeaderOrFollower = async function(follower) {
+    const shards = await getInfoFromAgency(["Plan", "Collections", "_system", replicationCollectionId, "shards"]);
+    const shardName = Object.keys(shards)[0];
     let dbServerId;
     if (follower) {
       // get first follower
-      dbServerId = plannedCollection.shards[shardName][1];
+      dbServerId = shards[shardName][1];
     } else {
       // set the leader
-      dbServerId = plannedCollection.shards[shardName][0];
+      dbServerId = shards[shardName][0];
     }
     let dbServerEndpoint;
     try {
-      dbServerEndpoint = data[0].arango.Current.ServersRegistered[dbServerId].endpoint;
-
+      dbServerEndpoint = await getInfoFromAgency(["Current","ServersRegistered", dbServerId, "endpoint"]);
     } catch (ignore) {
       dbServerEndpoint = undefined;
     }
@@ -50,9 +52,14 @@ describe("Replication", function() {
 
   async function createOneMillionDocs() {
     console.log("Create 1 mio docs");
+    const docs = [];
+    for (let i = 0; i < 10000; ++i) {
+      docs.push({ testung: Date.now() });
+    }
     // TODO: change to 1mio finally, when testing done
     const amount = 100;
     for (let i = 0; i < amount; i++) {
+      // db.collection(replicationCollectionName).save(docs);
       db.collection(replicationCollectionName).save({ testung: Date.now() });
     }
     console.log("Docs created");
@@ -66,19 +73,20 @@ describe("Replication", function() {
       url: instanceManager.getEndpointUrl(),
       databaseName: "_system"
     });
-    await db
+    const col = await db
       .collection(replicationCollectionName)
       .create({ shards: 1, minReplicationFactor: 3, replicationFactor: 5 });
-
-    // TODO: write 1mio docs
-    return Promise.all([
-      createOneMillionDocs(),
-    ]);
+    replicationCollectionId = col.id;
+    return await createOneMillionDocs();
   });
 
-  let maxRetries = 20;
-  let offlineFollowers = [];
+  const maxRetries = 20;
+  const offlineFollowers = [];
   let leaderName;
+
+  const getCurrentInSyncFollowers = async () => {
+    
+  };
 
   async function shutdownFollower() {
     if (!leaderName) {
@@ -137,7 +145,7 @@ describe("Replication", function() {
     return newLeaderSelected;
   }
  
-  it("collection should be set to read-only mode after nr of dbservers drops below minReplicationFactor - always dropping first found follower", async function() {
+  it.only("collection should be set to read-only mode after nr of dbservers drops below minReplicationFactor - always dropping first found follower", async function() {
     // 5 DBServers available, write to a collection should work flawlessly.
     let c1 = await db.collection(replicationCollectionName).save({ testung: Date.now() });
     await expect(c1).of.be.not.null;
@@ -157,6 +165,8 @@ describe("Replication", function() {
     try {
       let testX = await db.collection(replicationCollectionName).save({ testung: Date.now() });
       console.log(testX);
+      let testY = await db.collection(replicationCollectionName).save({ testung: Date.now() });
+      console.log(testY);
       expect.fail();
     } catch (e) {
       console.log(e);
