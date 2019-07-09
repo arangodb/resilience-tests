@@ -50,7 +50,7 @@ describe("Replication", function() {
     });
     await db
       .collection(replicationCollectionName)
-      .create({ shards: 9, minReplicationFactor: 3, replicationFactor: 5 });
+      .create({ shards: 1, minReplicationFactor: 3, replicationFactor: 5 });
   });
 
   let maxRetries = 20;
@@ -60,7 +60,7 @@ describe("Replication", function() {
     let oldDBServerName = dbServer.name;
     await instanceManager.shutdown(dbServer);
 
-    // let newLeaderSelected = false;
+    let newLeaderSelected = false;
 
     // then refetch leader state every second 
     for (let run = 1; run <= maxRetries; run++ ) {
@@ -73,16 +73,16 @@ describe("Replication", function() {
       
       if (newDBServerName !== undefined && oldDBServerName !== newDBServerName) {
         // new leader was found, quick exit
-        // newLeaderSelected = true;
+        newLeaderSelected = true;
         break;
       }
       await sleep(1000);
     }
     
-    // return newLeaderSelected;
+    return newLeaderSelected;
   }
   
-  it("collection should be set to read-only mode after nr of dbservers drops below minReplicationFactor", async function() {
+  it("collection should be set to read-only mode after nr of dbservers drops below minReplicationFactor - always dropping leader", async function() {
     // 5 DBServers available, write to a collection should work flawlessly.
     let c1 = await db.collection(replicationCollectionName).save({ testung: Date.now() });
     await expect(c1).of.be.not.null;
