@@ -93,31 +93,11 @@ describe("Replication", function() {
     }
   }
 
-  async function shutdownDBServerAndWaitForLeader(follower) {
-    const dbServer = await getLeaderOrFollower(follower);
-    let oldDBServerName = dbServer.name;
+  async function shutdownLeader() {
+    const oldFollowers = await getCurrentInSyncFollowers();
+    const dbServer = await getLeaderOrFollower();
     await instanceManager.shutdown(dbServer);
-
-    let newLeaderSelected = false;
-
-    // then refetch leader state every second 
-    for (let run = 1; run <= maxRetries; run++ ) {
-      let newDBServer = await getLeaderOrFollower();
-      
-      let newDBServerName;
-      if (newDBServer != undefined) {
-        newDBServerName = newDBServer.name;
-      }
-      
-      if (newDBServerName !== undefined && oldDBServerName !== newDBServerName) {
-        // new leader was found, quick exit
-        newLeaderSelected = true;
-        break;
-      }
-      await sleep(1000);
-    }
-    
-    return newLeaderSelected;
+    return oldFollowers[0];
   }
 /*
  *  Actual test case section
@@ -208,45 +188,66 @@ describe("Replication", function() {
     }
   });
 
-  it("collection should be set to read-only mode after nr of dbservers drops below minReplicationFactor - always dropping leader", async function() {
+  it.only("collection should be set to read-only mode after nr of dbservers drops below minReplicationFactor - always dropping leader", async function() {
+
+    const validateROMode = async (availableFollowers, lastLeader) => {
+      let changedLeader = false;
+      while (true) {
+        const inSync = await getCurrentInSyncFollowers();
+        if (inSync[0] !== lastLeader) {
+          changedLeader = true;
+        }
+         // We are NEVER allowed to get to only 1 copy
+        expect(inSync).to.have.length.above(1);
+        if (changedLeader && inSync.length === availableFollowers) {
+          return;
+        }
+        try {
+          // TRY to insert
+          await db.collection(replicationCollectionName).save({ testung: Date.now() });
+          // If we can write we must be upgraded to more than 2
+          const inSync = await getCurrentInSyncFollowers();
+          expect(changedLeader).to.be.true;
+          expect(inSync).to.have.length.above(2);
+        } catch (e) {
+          expect(e.isArangoError).to.be.true;
+          expect(e.errorNum).to.equal(1004);
+          expect(e.statusCode).to.equal(403);
+        }
+        sleep(1000);
+      }
+    };
+
     // 5 DBServers available, write to a collection should work flawlessly.
+    expect(await getCurrentInSyncFollowers()).to.have.length(5);
     let c1 = await db.collection(replicationCollectionName).save({ testung: Date.now() });
     await expect(c1).of.be.not.null;
-    await shutdownDBServerAndWaitForLeader();
+    expect(await getCurrentInSyncFollowers()).to.have.length(5);
 
-    // 4 of 5 DBServers left, write to a collection should work flawlessly.
-    let c2 = await db.collection(replicationCollectionName).save({ testung: Date.now() });
-    expect(c2).of.be.not.null;
-    await shutdownDBServerAndWaitForLeader();
-    
-    // 3 of 5 DBServers left, write to a collection should work flawlessly.
-    let c3 = await db.collection(replicationCollectionName).save({ testung: Date.now() });
-    expect(c3).of.be.not.null;
-    await shutdownDBServerAndWaitForLeader();
-    
-    // 2 of 5 DBServers left, write to a collection should fail. Collection is now in read-only mode.
-    try {
-      await db.collection(replicationCollectionName).save({ testung: Date.now() });
-      expect.fail();
-    } catch (e) {
-      expect(e.isArangoError).to.be.true;
-      expect(e.errorNum).to.equal(1004);
-      expect(e.statusCode).to.equal(403);
+    let lastLeader = await shutdownLeader();
+    await validateROMode(4, lastLeader);
+
+
+    lastLeader = await shutdownLeader();
+    await validateROMode(3, lastLeader);
+
+    lastLeader = await shutdownLeader();
+    // We will never be able to leave the RO mode here
+    // await validateROMode(2, lastLeader);
+    console.log("In RO mode");
+    for (let i = 0; i < 10; ++i) {
+      expect(await getCurrentInSyncFollowers()).to.have.length(2);
+      try {
+        // TRY to insert
+        await db.collection(replicationCollectionName).save({ testung: Date.now() });
+        expect.fail();
+      } catch (e) {
+        expect(e.isArangoError).to.be.true;
+        expect(e.errorNum).to.equal(1004);
+        expect(e.statusCode).to.equal(403);
+      }
+      sleep(1000);
     }
-    await shutdownDBServerAndWaitForLeader();
-    
-    // 1 of 5 DBServers left, write to a collection should fail. Collection is now in read-only mode.
-    try {
-      await db.collection(replicationCollectionName).save({ testung: Date.now() });
-      expect.fail();
-    } catch (e) {
-      expect(e.isArangoError).to.be.true;
-      expect(e.errorNum).to.equal(1004);
-      expect(e.statusCode).to.equal(403);
-    }
-    
-    const count = await db.collection(replicationCollectionName).count();
-    expect(count.count).to.equal(1000003);
   });
 
   afterEach(() => afterEachCleanup(this, instanceManager));
