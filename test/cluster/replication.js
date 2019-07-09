@@ -7,6 +7,11 @@ const {sleep, afterEachCleanup} = require('../../utils');
 
 const replicationCollectionName = "replicationCollectionName";
 let replicationCollectionId = 0;
+let shardName = "_unknown_";
+const maxRetries = 20;
+const offlineFollowers = [];
+let leaderName;
+
 
 describe("Replication", function() {
   const instanceManager = InstanceManager.create();
@@ -25,18 +30,22 @@ describe("Replication", function() {
     });
     // Same as data[0].arango.(path.join(".")) evaluated
     return path.reduce((obj, attribute) => obj[attribute], data[0].arango);
-  }
-
+  };
+  
+  
+  const getCurrentInSyncFollowers = async () => {
+    return getInfoFromAgency(["Current", "Collections", "_system", replicationCollectionId, shardName, "servers"]);
+  };
+  
   const getLeaderOrFollower = async function(follower) {
-    const shards = await getInfoFromAgency(["Plan", "Collections", "_system", replicationCollectionId, "shards"]);
-    const shardName = Object.keys(shards)[0];
+    const servers = await getInfoFromAgency(["Plan", "Collections", "_system", replicationCollectionId, "shards", shardName]);
     let dbServerId;
     if (follower) {
       // get first follower
-      dbServerId = shards[shardName][1];
+      dbServerId = servers[1];
     } else {
       // set the leader
-      dbServerId = shards[shardName][0];
+      dbServerId = servers[0];
     }
     let dbServerEndpoint;
     try {
@@ -49,7 +58,7 @@ describe("Replication", function() {
       .dbServers()
       .find(server => server.endpoint === dbServerEndpoint);
   };
-
+  
   async function createOneMillionDocs() {
     console.log("Create 1 mio docs");
     const docs = [];
@@ -63,7 +72,7 @@ describe("Replication", function() {
       db.collection(replicationCollectionName).save({ testung: Date.now() });
     }
     console.log("Docs created");
-  }
+  };
 
   beforeEach(async function() {
     // start 5 dbservers
@@ -77,16 +86,13 @@ describe("Replication", function() {
       .collection(replicationCollectionName)
       .create({ shards: 1, minReplicationFactor: 3, replicationFactor: 5 });
     replicationCollectionId = col.id;
-    return await createOneMillionDocs();
+    const shards = await getInfoFromAgency(["Plan", "Collections", "_system", replicationCollectionId, "shards"]);
+    shardName = Object.keys(shards)[0];
+    await createOneMillionDocs();
   });
 
-  const maxRetries = 20;
-  const offlineFollowers = [];
-  let leaderName;
 
-  const getCurrentInSyncFollowers = async () => {
-    
-  };
+
 
   async function shutdownFollower() {
     if (!leaderName) {
