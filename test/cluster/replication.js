@@ -188,7 +188,7 @@ describe("Replication", function() {
     }
   });
 
-  it.only("collection should be set to read-only mode after nr of dbservers drops below minReplicationFactor - always dropping leader", async function() {
+  it("collection should be set to read-only mode after nr of dbservers drops below minReplicationFactor - always dropping leader", async function() {
 
     const validateROMode = async (availableFollowers, lastLeader) => {
       let changedLeader = false;
