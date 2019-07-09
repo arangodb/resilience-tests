@@ -60,8 +60,6 @@ describe("Replication", function() {
     let oldDBServerName = dbServer.name;
     await instanceManager.shutdown(dbServer);
 
-    // Give the instance some initial time
-    await sleep(6000);
     // let newLeaderSelected = false;
 
     // then refetch leader state every second 
@@ -81,7 +79,6 @@ describe("Replication", function() {
       await sleep(1000);
     }
     
-    await sleep(6000);
     // return newLeaderSelected;
   }
   
