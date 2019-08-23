@@ -45,7 +45,8 @@ describe("Database", function() {
     return names.includes(database);
   }
 
-  const maxAgencyRetries = 20;
+  // const maxAgencyRetries = 2 * 60 * 10; // 10 minutes
+  const maxAgencyRetries = 2 * 60 * 3; // 3 minutes
   const agencyRetryTime = 500;
 
   const readDatabaseFromAgency = async function (database) {
@@ -77,7 +78,7 @@ describe("Database", function() {
         body: [["/"]],
       });
 
-      if (!info.arango.Plan.Databases[database]) {
+      if (!info.arango.Plan.Databases[database] || info.arango.Plan.Databases[database] === undefined) {
         gotRemoved = true;
         return gotRemoved;
       }
@@ -102,6 +103,48 @@ describe("Database", function() {
 /*
  *  Actual test case section
  */
+
+  it("create a database and forcefully reboot the coordinator during creation", async function() {
+    // maintenance job should clean up agency plan
+    // make sure to use exactly the same coordinator
+    const coordinatorToReboot = instanceManager.coordinators()[0];
+    const coordinatorToVerifyA = instanceManager.coordinators()[1];
+    const coordinatorToVerifyB = instanceManager.coordinators()[2];
+
+    db = arangojs({
+      url: instanceManager.getEndpointUrl(coordinatorToReboot),
+      databaseName: "_system"
+    });
+
+    // 5 seconds internal coordinator sleep
+    await debugSetFailAt('UpgradeTasks::HideDatabaseUntilCreationIsFinished', coordinatorToReboot);
+
+    // create a new database (async, we do not care about the result)
+    (async function() {
+      try {
+        db.createDatabase(databaseName);
+      } catch (err) {
+        console.log(err);
+      }
+    })();
+    await instanceManager.restart(coordinatorToReboot);
+
+    // check agency
+    let found = await readDatabaseFromAgency(databaseName);
+    if (!found) {
+      expect(true).to.be.false; // We did not found the entry in the agency, something is wrong
+    }
+
+    // databases are not allowed to show up in the (alive) coordinators 
+    let checkA = await checkIfDbExistsOnCoordinator(coordinatorToVerifyA, databaseName);
+    let checkB = await checkIfDbExistsOnCoordinator(coordinatorToVerifyB, databaseName);
+    expect(checkA).to.be.false;
+    expect(checkB).to.be.false;
+
+    let removed = await waitForDatabaseRemovalFromAgency(databaseName);
+    // expect that the agency entry got cleaned up via the supervision job (after some time)
+    expect(removed).to.be.true;
+  });
  
   it("create a database and kill the coordinator during creation", async function() {
     // maintenance job should clean up agency plan
@@ -146,7 +189,6 @@ describe("Database", function() {
     let removed = await waitForDatabaseRemovalFromAgency(databaseName);
     // expect that the agency entry got cleaned up via the supervision job (after some time)
     expect(removed).to.be.true;
-
   });
 
   afterEach(() => afterEachCleanup(this, instanceManager));
