@@ -124,16 +124,22 @@ describe("Database", function() {
       try {
         db.createDatabase(databaseName);
       } catch (err) {
-        console.log(err);
+        console.log(new Date().toISOString() + " " + err);
       }
     })();
-    await instanceManager.restart(coordinatorToReboot);
+
+    console.log(new Date().toISOString() + " Try to read database entry in agency...");
 
     // check agency
     let found = await readDatabaseFromAgency(databaseName);
     if (!found) {
-      expect(true).to.be.false; // We did not found the entry in the agency, something is wrong
+      expect(true).to.be.false; // We did not find the entry in the agency, something is wrong
     }
+
+    await instanceManager.shutdown(coordinatorToReboot);
+    await instanceManager.restart(coordinatorToReboot);
+
+    console.log(new Date().toISOString() + " Try to find the database on alive coordinators...");
 
     // databases are not allowed to show up in the (alive) coordinators 
     let checkA = await checkIfDbExistsOnCoordinator(coordinatorToVerifyA, databaseName);
@@ -145,7 +151,7 @@ describe("Database", function() {
     // expect that the agency entry got cleaned up via the supervision job (after some time)
     expect(removed).to.be.true;
   });
- 
+
   it("create a database and kill the coordinator during creation", async function() {
     // maintenance job should clean up agency plan
     // make sure to use exactly the same coordinator
