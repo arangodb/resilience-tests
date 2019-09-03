@@ -13,13 +13,8 @@ describe("Remove servers", function() {
     const agents = await instanceManager
       .startAgency({ agencySize: 1, agencyWaitForSync: false });
     await instanceManager.waitForAllInstances();
-    const version = await rp({
-      url: instanceManager.getEndpointUrl(agents[0]) + "/_api/version",
-      json: true
-    });
-    const parts = version.version.split(".")
-      .map(num => parseInt(num, 10));
-    if (parts[0] < 3 || parts[1] < 2) {
+    const version = agents[0].version.version;
+    if (version.major <= 3 || (version.major == 3 && version.minor < 2)) {
       this.skip();
     }
     await instanceManager.cleanup();

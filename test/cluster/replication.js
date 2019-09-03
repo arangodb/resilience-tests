@@ -183,7 +183,11 @@ describe("Replication", function() {
   beforeEach(async function() {
     // start 5 dbservers
     await instanceManager.startCluster(1, 3, 5);
-    
+    const version = instanceManager.coordinators()[0].version.version;
+    if (version.major <= 3 || (version.major == 3 && version.minor < 5)) {
+      this.skip();
+    }
+
     db = arangojs({
       url: instanceManager.getEndpointUrl(),
       databaseName: "_system"
