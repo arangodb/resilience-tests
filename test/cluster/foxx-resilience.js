@@ -34,7 +34,7 @@ const MOUNT_1 = "/resiliencetestservice1";
 const MOUNT_2 = "/resiliencetestservice2";
 const MOUNT_3 = "/resiliencetestservice3";
 
-describe("Foxx service (resilience)", function() {
+describe.skip("Foxx service (resilience)", function() {
   describe(
     "while cluster running",
     suiteRunningClusterDifferentServiceSetups(getRandomEndpointUrl)

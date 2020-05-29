@@ -5,7 +5,7 @@ const expect = require("chai").expect;
 const rp = require("request-promise-native");
 const {sleep, afterEachCleanup} = require('../../utils');
 
-describe("Remove servers", function() {
+describe.skip("Remove servers", function() {
   const instanceManager = InstanceManager.create();
 
   before(async function() {
