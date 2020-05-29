@@ -9,7 +9,7 @@ const {sleep, afterEachCleanup} = require('../../utils');
 const ERROR_SHUTTING_DOWN = 30;
 
 
-describe("Failover", function() {
+describe.skip("Failover", function() {
   const instanceManager = InstanceManager.create();
   let db;
 

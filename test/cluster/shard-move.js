@@ -8,7 +8,7 @@ const _ = require("lodash");
 const {debugLog} = require('../../utils');
 const dd = require('dedent');
 
-describe("Move shards", function() {
+describe.skip("Move shards", function() {
   let instanceManager = InstanceManager.create();
   let db;
   let servers = [];

@@ -19,7 +19,7 @@ const service2 = readFileSync(
 );
 const retryIntervalMS = 10000;
 
-describe("Foxx service (dbserver)", function() {
+describe.skip("Foxx service (dbserver)", function() {
   const im = InstanceManager.create();
   const MOUNT = "/resiliencetestservice";
 
