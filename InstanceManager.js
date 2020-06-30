@@ -17,15 +17,7 @@ exports.create = () => {
     );
   }
 
-  let storageEngine;
-  if (process.env.ARANGO_STORAGE_ENGINE) {
-    storageEngine = process.env.ARANGO_STORAGE_ENGINE;
-    if (storageEngine !== "rocksdb") {
-      storageEngine = "mmfiles";
-    }
-  } else {
-    storageEngine = "mmfiles";
-  }
+  let storageEngine = process.env.ARANGO_STORAGE_ENGINE === "mmfiles" ? "mmfiles"  : "rocksdb";
   return new aim.InstanceManager(pathOrImage, runner, storageEngine);
 };
 
