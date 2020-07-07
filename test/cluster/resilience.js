@@ -5,7 +5,7 @@ const expect = require("chai").expect;
 const arangojs = require("arangojs");
 const dd = require('dedent');
 
-describe.skip("ClusterResilience", function() {
+describe("ClusterResilience", function() {
   let instanceManager = InstanceManager.create();
   let db;
   let aTestFailed;
