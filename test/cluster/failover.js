@@ -3,45 +3,45 @@
 const InstanceManager = require("../../InstanceManager.js");
 const expect = require("chai").expect;
 const arangojs = require("arangojs");
-const {sleep, afterEachCleanup} = require('../../utils');
+const { sleep, afterEachCleanup } = require("../../utils");
 
 // Arango error code for "shutdown in progress"
 const ERROR_SHUTTING_DOWN = 30;
+const CLUSTER_BACKEND_UNAVAILABLE = 1478;
 
-
-describe.skip("Failover", function() {
+describe("Failover", function() {
   const instanceManager = InstanceManager.create();
   let db;
 
   const getLeader = async function() {
-    const data = await InstanceManager
-      .rpAgency({
-        method: "POST",
-        url:
-          instanceManager.getEndpointUrl(instanceManager.agents()[0]) +
-          "/_api/agency/read",
-        json: true,
-        body: [["/"]]
-      });
+    const data = await InstanceManager.rpAgency({
+      method: "POST",
+      url:
+        instanceManager.getEndpointUrl(instanceManager.agents()[0]) +
+        "/_api/agency/read",
+      json: true,
+      body: [["/"]],
+    });
 
     const plan = data[0].arango.Plan;
 
-    const plannedCollection = Object.values(plan.Collections["_system"])
-      .find(col => col.name === "testcollection");
+    const plannedCollection = Object.values(plan.Collections["_system"]).find(
+      (col) => col.name === "testcollection"
+    );
     const shardName = Object.keys(plannedCollection.shards)[0];
     const leaderId = plannedCollection.shards[shardName][0];
     const leaderEndpoint =
       data[0].arango.Current.ServersRegistered[leaderId].endpoint;
     return instanceManager
       .dbServers()
-      .find(server => server.endpoint === leaderEndpoint);
+      .find((server) => server.endpoint === leaderEndpoint);
   };
 
   beforeEach(async function() {
     await instanceManager.startCluster(1, 2, 2);
     db = arangojs({
       url: instanceManager.getEndpointUrl(),
-      databaseName: "_system"
+      databaseName: "_system",
     });
     await db
       .collection("testcollection")
@@ -61,17 +61,39 @@ describe.skip("Failover", function() {
   it("should fail over to another replica when a server goes down", async function() {
     const dbServer = await getLeader();
     await instanceManager.shutdown(dbServer);
-    await db.collection("testcollection").save({ testung: Date.now() });
+    let needRetry = false;
+    let retryCounts = 0;
+    do {
+      if (retryCounts > 100) {
+        // we tried for 100 * 100ms => 10s
+        break;
+      }
+      needRetry = false;
+      retryCounts++;
+      try {
+        await db.collection("testcollection").save({ testung: Date.now() });
+      } catch (reason) {
+        expect(reason.errorNum).to.be.oneOf(
+          [ERROR_SHUTTING_DOWN, CLUSTER_BACKEND_UNAVAILABLE],
+          `instead got ${reason.errorNum} "${reason.message}"`
+        );
+        await sleep(100);
+        needRetry = true;
+      }
+    } while (needRetry);
+    expect(retryCounts).to.be.lessThan(100);
+    // We have 7 documents setup.
+    // Now we added one more.
+    // Expect to have 8 after first success was reported.
     const count = await db.collection("testcollection").count();
     expect(count.count).to.equal(8);
   });
 
   it("should allow importing even when a leader fails", async function() {
-    const docs = [...Array(10000)]
-      .map((_, key) => ({
-        _key: "k" + key,
-        hans: "kanns"
-      }));
+    const docs = [...Array(10000)].map((_, key) => ({
+      _key: "k" + key,
+      hans: "kanns",
+    }));
     const dbServer = await getLeader();
 
     const slicedImportNew = async function() {
@@ -93,10 +115,14 @@ describe.skip("Failover", function() {
             // SHUTDOWN message. So we wait a little while
             // and try again until SHUTDOWN is gone.
             // Then failover should be performed
-            expect(reason.errorNum).to.equal(ERROR_SHUTTING_DOWN);
+
+            expect(reason.errorNum).to.be.oneOf(
+              [ERROR_SHUTTING_DOWN, CLUSTER_BACKEND_UNAVAILABLE],
+              `instead got ${reason.errorNum} "${reason.message}"`
+            );
             // As we get here only for the second request fail
             // it is expected that the leader is not reachable
-            await sleep (100);
+            await sleep(100);
             // => It is safe to assume that the import did
             // not work at all. So try again with the same slice
             index -= count;
@@ -117,7 +143,7 @@ describe.skip("Failover", function() {
 
     const [failures] = await Promise.all([
       slicedImportNew(),
-      instanceManager.shutdown(dbServer)
+      instanceManager.shutdown(dbServer),
     ]);
 
     const count = await db.collection("testcollection").count();
