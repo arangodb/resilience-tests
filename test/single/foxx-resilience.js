@@ -23,7 +23,7 @@ const MOUNT_1 = "/resiliencetestservice1";
 
 const {sleep, debugLog, afterEachCleanup} = require('../../utils');
 
-describe("Foxx service", async function() {
+describe.skip("Foxx service", async function() {
   const instanceManager = InstanceManager.create();
 
   const serviceInfos = [

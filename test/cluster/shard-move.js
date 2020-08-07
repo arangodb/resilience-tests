@@ -8,6 +8,9 @@ const _ = require("lodash");
 const {debugLog} = require('../../utils');
 const dd = require('dedent');
 
+// enable next line to set enable log debug mode
+// process.env.LOG_IMMEDIATE = "1";
+
 describe("Move shards", function() {
   let instanceManager = InstanceManager.create();
   let db;
@@ -133,6 +136,11 @@ describe("Move shards", function() {
                 return waitShardMoved(newLeader, numServers, num + 1);
               });
             }
+          })
+          .catch((e) => {
+            console.log("First catch");
+            console.log(e.message);
+            console.log(e.error);
           });
       };
 
@@ -178,6 +186,12 @@ describe("Move shards", function() {
             method: "POST"
           }).then(() => {
             return should;
+          }).catch((e) => {
+            console.log("Failed to move shard:");
+            console.log("Body:");
+            console.log(body);
+            console.log(e.message);
+            console.log(e.error);
           });
         })
         .then(should => {
@@ -185,56 +199,75 @@ describe("Move shards", function() {
         })
         .then(() => {
           return moveShards();
+        })
+        .catch((e) => {
+          console.log("Second catch");
+          console.log(e.message);
+          console.log(e.error);
         });
-    };
-
-    let insertDocuments = function() {
-      return [...Array(10000).keys()].reduce((promise, key) => {
-        return promise.then(() => {
-          return db.collection("testcollection").save({ hallooo: key });
-        });
-      }, Promise.resolve());
     };
 
     let movePromise = moveShards();
 
-    return insertDocuments()
-      .then(() => {
-        debugLog("Done inserting 10000 docs.");
-        moveShards.stop = true;
-        return movePromise;
-      })
-      .then(() => {
-        debugLog("movePromise resolved");
-        return db.collection("testcollection").count();
-      })
-      .then(collectionCount => {
-        return Promise.all([Promise.resolve(collectionCount.count), db.collection("testcollection").all()]);
-      })
-      .then(([collectionCount, cursor]) => {
-        const all = cursor.all();
-        return Promise.all([Promise.resolve(collectionCount), all]);
-      })
-      .then(([collectionCount, all]) => {
-        all = new Set(all.map(doc => doc.hallooo));
+    async function newInsertDocuments() {
+      const docsToInsert = 10000;
+      let inserts = [];
 
-        let errorMsg = "";
-        if (all.size !== 10000 || collectionCount !== 10000) {
-          errorMsg += `total count is ${all.size}, collection count is ${collectionCount}\n`;
-          for (let i = 0; i < 10000; ++i) {
-            if (!all.has(i)) {
-              errorMsg += `Document ${i} missing!\n`;
+      // documents which failed due failover where docs could not been inserted because of leadership changes
+      // (read-only) mode
+      let failedKeys = [];
+
+      let failures = 0;
+      for (let key = 0; key < docsToInsert; key++) {
+        inserts.push(
+          (async () => {
+            try {
+              await db.collection("testcollection").save({ hallooo: key });
+            } catch (e) {
+              failedKeys.push(key);
+              failures++;
             }
+          })()
+        );
+      }
+
+      await Promise.all(inserts);
+
+      moveShards.stop = true;
+      let insertedAmount = docsToInsert - failures;
+      let realCollectionCount = 0;
+      try {
+        realCollectionCount = (await db.collection("testcollection").count()).count;
+      } catch (e) {
+        debugLog("count error.");
+      }
+      debugLog("Done inserting " + insertedAmount + " docs :)");
+      debugLog(" - real collection count is: " + realCollectionCount);
+
+      let allDocsCursor = await db.collection("testcollection").all();
+      let all = await allDocsCursor.all();
+      all = new Set(all.map(doc => doc.hallooo));
+
+      let errorMsg = "";
+      if (all.size !== insertedAmount || realCollectionCount !== insertedAmount) {
+        errorMsg += `total count is ${all.size}, collection count is ${realCollectionCount}\n`;
+        for (let i = 0; i < 10000; ++i) {
+          if (!all.has(i) && !failedKeys.includes(i)) {
+            errorMsg += `Document ${i} missing!\n`;
           }
           // If you get the following error message, most probably something is
           // wrong in the test code.
           for (const i of all) {
-            if (!_.inRange(i, 0, 10000)) {
+            if (!_.inRange(i, 0, docsToInsert)) {
               errorMsg += `Unexpected document ${i}!\n`;
             }
           }
         }
-        expect(all.size, errorMsg).to.equal(10000);
-      });
+      }
+      expect(all.size, errorMsg).to.equal(insertedAmount);
+    }
+
+    return newInsertDocuments()
+
   });
 });
