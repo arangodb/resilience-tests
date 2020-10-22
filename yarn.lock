@@ -114,14 +114,13 @@ append-type@^1.0.1:
   resolved "https://registry.yarnpkg.com/append-type/-/append-type-1.0.1.tgz#e29a6eb22cec0c0b9b93063b3cf6b10d9e0c60f4"
   integrity sha512-ro+W6UHJuoA2NXqKHug9bmXDbPB3eCALjcJOsYjgI9cz9cjLFthvincBCWjk25VFzJmIUHd8saOWZZBuMycXrg==
 
-arangodb-instance-manager@^1.1.2:
-  version "1.1.2"
-  resolved "https://registry.yarnpkg.com/arangodb-instance-manager/-/arangodb-instance-manager-1.1.2.tgz#849974de48380980f0a23554c0c1d38f83975ebb"
-  integrity sha512-XlbaTfZQL7eNDWifGF6Ck1vY9xT/8JeDlHZzW0lJ/e7a06q7wWf4DbweSpllKlUKITjieP5h7pg4JvbPOSwnaA==
+arangodb-instance-manager@^1.2.3:
+  version "1.2.3"
+  resolved "https://registry.yarnpkg.com/arangodb-instance-manager/-/arangodb-instance-manager-1.2.3.tgz#408f6c08c9d3f49f01be13a7e4aeb36b0319a813"
+  integrity sha512-BE/8EJC37sDW17b8pT0SNlKxvDjnfz4f18qQCTI0Bqto1ujQ1YpQ5jZt93rQdS4r/AgpQHe+HVud7jVIWwDvdg==
   dependencies:
     "@types/request-promise-native" "^1.0.15"
     arangojs "^6.2.4"
-    dedent "^0.7.0"
     express "^4.16.3"
     ip "^1.1.5"
     lodash "^4.17.10"
@@ -135,7 +134,18 @@ arangodb-instance-manager@^1.1.2:
     tmp "^0.0.33"
     which "^1.3.0"
 
-arangojs@^6.2.4, arangojs@^6.7.0:
+arangojs@^6.14.1:
+  version "6.14.1"
+  resolved "https://registry.yarnpkg.com/arangojs/-/arangojs-6.14.1.tgz#49f0911a35313ad27c3a34b39df0649373f8c1cd"
+  integrity sha512-TJfqwLCo4RyXH5j3i491xKc6qBUsOhd3aIwrTMTuhMkzT6pGRYLvemrmM+XG5HlwYS33M0Ppdj3V6YBsk0HYYg==
+  dependencies:
+    "@types/node" "*"
+    es6-error "^4.0.1"
+    multi-part "^2.0.0"
+    x3-linkedlist "1.0.0"
+    xhr "^2.4.1"
+
+arangojs@^6.2.4:
   version "6.10.0"
   resolved "https://registry.yarnpkg.com/arangojs/-/arangojs-6.10.0.tgz#343484b64a3eb115fb5e57ea2f099923e8e504ab"
   integrity sha512-6fRck+EfhcOHz0lXUBaI3LSPoeJgNufyzsAH+xqqmBQOLe+MdKaxj67NG/sqQ/dMmihV7mOFC6PmZpWGTl9WIQ==
@@ -1275,10 +1285,10 @@ lodash.once@^4.1.1:
   resolved "https://registry.yarnpkg.com/lodash.once/-/lodash.once-4.1.1.tgz#0dd3971213c7c56df880977d504c88fb471a97ac"
   integrity sha1-DdOXEhPHxW34gJd9UEyI+0cal6w=
 
-lodash@^4.0.0, lodash@^4.13.1, lodash@^4.17.10, lodash@^4.17.13, lodash@^4.17.4, lodash@^4.3.0:
-  version "4.17.13"
-  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.13.tgz#0bdc3a6adc873d2f4e0c4bac285df91b64fc7b93"
-  integrity sha512-vm3/XWXfWtRua0FkUyEHBZy8kCPjErNBT9fJx8Zvs+U6zjqPbTUOpkaoum3O5uiA8sm+yNMHXfYkTUHFoMxFNA==
+lodash@^4.0.0, lodash@^4.13.1, lodash@^4.17.10, lodash@^4.17.19, lodash@^4.17.4, lodash@^4.3.0:
+  version "4.17.19"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.19.tgz#e48ddedbe30b3321783c5b4301fbd353bc1e4a4b"
+  integrity sha512-JNvd8XER9GQX0v2qJgsaN/mzFCNA5BRe/j8JN9d+tWyGLSodKQHKFicdwNYzWwI3wjRnaKPsGj1XkBjx/F96DQ==
 
 loose-envify@^1.0.0:
   version "1.4.0"
@@ -2094,6 +2104,11 @@ write@^0.2.1:
   integrity sha1-X8A4KOJkzqP+kUVUdvejxWbLB1c=
   dependencies:
     mkdirp "^0.5.1"
+
+x3-linkedlist@1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/x3-linkedlist/-/x3-linkedlist-1.0.0.tgz#f5a8c7e742cf3b31d7800e031ab15135387f85d3"
+  integrity sha512-8CwA4XCMtso4G6qJWCzqbWQ9YJjtRiD4rUHFJ77rlAXQUN38Ni9E84y4F9qt4ijxZhfpJVm9tRs8E2vdLC4ZqQ==
 
 xhr@^2.4.1:
   version "2.5.0"
